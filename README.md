@@ -1,2 +1,2 @@
 # ClippyNet
-Tinder for Microsoft Employeess
+Tinder for Microsoft Networking
