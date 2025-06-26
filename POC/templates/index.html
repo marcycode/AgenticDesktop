@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgenticDesktop</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            color: white;
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            color: rgba(255,255,255,0.9);
+            font-size: 1.2rem;
+            font-weight: 300;
+        }
+
+        .main-panel {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .command-input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .command-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .command-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .command-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .command-text {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1.1rem;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-processing {
+            background: #ffeaa7;
+            color: #fdcb6e;
+        }
+
+        .status-ready {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .status-executing {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-completed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .steps-container {
+            margin-top: 15px;
+        }
+
+        .step-item {
+            background: white;
+            padding: 12px 15px;
+            margin: 8px 0;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .history-panel {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f1f3f4;
+        }
+
+        .history-header h3 {
+            color: #2c3e50;
+            font-size: 1.5rem;
+        }
+
+        .loading {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            color: #667eea;
+            font-weight: 500;
+        }
+
+        .loading.show {
+            display: flex;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .examples {
+            margin-top: 20px;
+        }
+
+        .examples h4 {
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        .example-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .example-tag {
+            background: #e9ecef;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .example-tag:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .main-panel {
+                padding: 20px;
+            }
+
+            .input-container {
+                flex-direction: column;
+            }
+
+            .btn {
+                padding: 12px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AgenticDesktop</h1>
+            <p>AI-Powered Desktop Automation</p>
+        </div>
+
+        <div class="main-panel">
+            <div class="input-section">
+                <div class="input-container">
+                    <input type="text" id="commandInput" class="command-input" 
+                           placeholder="Tell me what you want to do... (e.g., 'open Chrome and search for restaurants')" 
+                           onkeypress="handleKeyPress(event)">
+                    <button class="btn btn-primary" onclick="processCommand()">
+                        <span id="processText">Process</span>
+                    </button>
+                    <button class="btn btn-secondary" onclick="getVoiceCommand()">
+                        🎤 Voice
+                    </button>
+                </div>
+                
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <span>Processing your command...</span>
+                </div>
+
+                <div class="examples">
+                    <h4>Try these examples:</h4>
+                    <div class="example-tags">
+                        <span class="example-tag" onclick="setExample('open Chrome and search for weather')">Search weather</span>
+                        <span class="example-tag" onclick="setExample('copy all files from Downloads to Desktop')">Copy files</span>
+                        <span class="example-tag" onclick="setExample('open calculator')">Open calculator</span>
+                        <span class="example-tag" onclick="setExample('find all PDF files in Documents')">Find PDFs</span>
+                        <span class="example-tag" onclick="setExample('move recent downloads to Pictures folder')">Move files</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="currentCommand" class="command-container" style="display: none;"></div>
+        </div>
+
+        <div class="history-panel">
+            <div class="history-header">
+                <h3>Command History</h3>
+                <button class="btn btn-secondary" onclick="loadHistory()">Refresh</button>
+            </div>
+            <div id="historyContainer">
+                <p style="text-align: center; color: #6c757d; font-style: italic;">No commands yet. Start by entering a command above!</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let currentCommandId = null;
+
+        // Socket event listeners
+        socket.on('command_update', function(data) {
+            updateCommandDisplay(data);
+            loadHistory(); // Refresh history when command updates
+        });
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                processCommand();
+            }
+        }
+
+        function setExample(text) {
+            document.getElementById('commandInput').value = text;
+        }
+
+        async function processCommand() {
+            const commandInput = document.getElementById('commandInput');
+            const command = commandInput.value.trim();
+            
+            if (!command) {
+                alert('Please enter a command');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('processText').textContent = 'Processing...';
+
+            try {
+                const response = await fetch('/api/process_command', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ command: command })
+                });
+
+                const data = await response.json();
+                currentCommandId = data.command_id;
+                
+                // Clear input
+                commandInput.value = '';
+                
+            } catch (error) {
+                console.error('Error processing command:', error);
+                alert('Error processing command: ' + error.message);
+            } finally {
+                document.getElementById('loading').classList.remove('show');
+                document.getElementById('processText').textContent = 'Process';
+            }
+        }
+
+        async function executeCommand(commandId) {
+            try {
+                const response = await fetch('/api/execute_command', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ command_id: commandId })
+                });
+
+                const data = await response.json();
+                console.log('Execution started:', data);
+                
+            } catch (error) {
+                console.error('Error executing command:', error);
+                alert('Error executing command: ' + error.message);
+            }
+        }
+
+        async function getVoiceCommand() {
+            const button = event.target;
+            const originalText = button.innerHTML;
+            button.innerHTML = '🎤 Listening...';
+            button.disabled = true;
+
+            try {
+                const response = await fetch('/api/voice_command', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const data = await response.json();
+                if (data.command) {
+                    document.getElementById('commandInput').value = data.command;
+                } else {
+                    alert('Could not understand voice command');
+                }
+                
+            } catch (error) {
+                console.error('Error getting voice command:', error);
+                alert('Error with voice command: ' + error.message);
+            } finally {
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }
+        }
+
+        function updateCommandDisplay(commandData) {
+            const container = document.getElementById('currentCommand');
+            container.style.display = 'block';
+            
+            const statusClass = `status-${commandData.status}`;
+            const statusText = commandData.status.charAt(0).toUpperCase() + commandData.status.slice(1);
+            
+            let stepsHtml = '';
+            if (commandData.steps && Array.isArray(commandData.steps)) {
+                stepsHtml = `
+                    <div class="steps-container">
+                        <h5 style="margin-bottom: 10px; color: #495057;">Planned Steps:</h5>
+                        ${commandData.steps.map(step => `
+                            <div class="step-item">
+                                <strong>${step.action}:</strong> ${JSON.stringify(step, null, 2).slice(1, -1)}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            let executeButton = '';
+            if (commandData.status === 'ready') {
+                executeButton = `<button class="btn btn-success" onclick="executeCommand('${commandData.id}')">Execute</button>`;
+            }
+
+            container.innerHTML = `
+                <div class="command-card">
+                    <div class="command-header">
+                        <div class="command-text">${commandData.command}</div>
+                        <div class="status-badge ${statusClass}">${statusText}</div>
+                    </div>
+                    ${stepsHtml}
+                    ${commandData.error ? `<div style="color: #dc3545; margin-top: 10px;"><strong>Error:</strong> ${commandData.error}</div>` : ''}
+                    <div style="margin-top: 15px; text-align: right;">
+                        ${executeButton}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadHistory() {
+            try {
+                const response = await fetch('/api/history');
+                const history = await response.json();
+                
+                const container = document.getElementById('historyContainer');
+                
+                if (history.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: #6c757d; font-style: italic;">No commands yet. Start by entering a command above!</p>';
+                    return;
+                }
+
+                container.innerHTML = history.map(command => {
+                    const statusClass = `status-${command.status}`;
+                    const statusText = command.status.charAt(0).toUpperCase() + command.status.slice(1);
+                    const date = new Date(command.timestamp * 1000).toLocaleString();
+                    
+                    let stepsHtml = '';
+                    if (command.steps && Array.isArray(command.steps)) {
+                        stepsHtml = `
+                            <div class="steps-container">
+                                ${command.steps.map(step => `
+                                    <div class="step-item">
+                                        <strong>${step.action}:</strong> ${JSON.stringify(step, null, 2).slice(1, -1)}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    }
+
+                    return `
+                        <div class="command-card">
+                            <div class="command-header">
+                                <div class="command-text">${command.command}</div>
+                                <div class="status-badge ${statusClass}">${statusText}</div>
+                            </div>
+                            <div style="font-size: 12px; color: #6c757d; margin-bottom: 10px;">${date}</div>
+                            ${stepsHtml}
+                            ${command.error ? `<div style="color: #dc3545; margin-top: 10px;"><strong>Error:</strong> ${command.error}</div>` : ''}
+                        </div>
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+
+        // Load history on page load
+        window.addEventListener('load', loadHistory);
+    </script>
+</body>
+</html> 
