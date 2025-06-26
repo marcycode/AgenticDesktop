@@ -108,5 +108,16 @@ def get_voice():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/system_info')
+def get_system_capabilities():
+    try:
+        from system_info import get_system_info
+        system_info = get_system_info()
+        return jsonify(system_info)
+    except ImportError:
+        return jsonify({'error': 'System info not available'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     socketio.run(app, debug=True, host='0.0.0.0', port=5000) 
