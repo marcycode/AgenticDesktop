@@ -116,9 +116,17 @@ def process_command():
         def process_in_background():
             try:
                 steps = get_command_steps(user_input)
-                command_history[command_id]['steps'] = steps
-                command_history[command_id]['status'] = 'ready'
-                command_history[command_id]['undone'] = False
+                
+                # Check if the response contains an error
+                if isinstance(steps, dict) and steps.get('error'):
+                    command_history[command_id]['status'] = 'error'
+                    command_history[command_id]['error'] = steps.get('message', 'Unknown error')
+                    command_history[command_id]['steps'] = None
+                    command_history[command_id]['undone'] = False
+                else:
+                    command_history[command_id]['steps'] = steps
+                    command_history[command_id]['status'] = 'ready'
+                    command_history[command_id]['undone'] = False
                 
                 # emit update to client
                 socketio.emit('command_update', command_history[command_id])
