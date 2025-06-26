@@ -571,7 +571,7 @@
 
         async function undoCommand(commandId) {
             try {
-                const response = await fetch(`/api/undo_command/${commandId}`, {
+                const response = await fetch('/api/undo_command', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

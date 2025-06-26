@@ -135,32 +135,45 @@ def process_command():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/undo_command/<command_id>', methods=['POST'])
-def undo_command(command_id):
-    print(f"[Undo Command] Request to undo command {command_id}")
-    if command_id in command_history:
-        command_data = command_history[command_id]
-        if command_data['undone'] == True:
-            return jsonify({'error': 'Command already undone'}), 400
+@app.route('/api/undo_command', methods=['POST'])
+def undo_command():
+    try:
+        old_command_id = request.json.get('command_id')
         
-        def process_in_background():
-            try:
-                opposite_steps = get_opposite_command_steps(command_data['steps'])
+        if old_command_id in command_history:
+            old_command_data = command_history[old_command_id]
+            command_id = str(uuid.uuid4())
+
+            # store initial command
+            command_history[command_id] = {
+                'id': command_id,
+                'command': old_command_data['command'] + " (undo)",
+                'status': 'processing',
+                'steps': None,
+                'timestamp': time.time()
+            }
+
+            def process_in_background():
+                # process command in background
+                try:
+                    opposite_steps = get_opposite_command_steps(old_command_data['steps'])
+                    command_history[command_id]['steps'] = opposite_steps
+                    command_history[command_id]['status'] = 'ready'
+                    command_history[command_id]['undone'] = False
+                        
+                    # emit update to client
+                    socketio.emit('command_update', command_history[command_id])
+                except Exception as e:
+                    command_history[command_id]['status'] = 'error'
+                    command_history[command_id]['error'] = str(e)
+                    socketio.emit('command_update', command_history[command_id])
                 
-                
-                #for step in opposite_steps:
-                #    execute_steps([step])
-            except Exception as e:
-                command_history[command_id]['status'] = 'error'
-                command_history[command_id]['error'] = str(e)
+            thread = threading.Thread(target=process_in_background)
+            thread.start()
             
-        thread = threading.Thread(target=process_in_background)
-        thread.start()
-        
-        command_data['status'] = 'undone'
-        command_data['undone'] = True
-        return jsonify({'success': True}), 200
-    return jsonify({'error': 'Command not found or already undone'}), 500
+            return jsonify({'command_id': command_id, 'status': 'processing'})    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/execute_command', methods=['POST'])
 def execute_command():
