@@ -194,6 +194,77 @@
             font-size: 14px;
         }
 
+        .desktop-panel {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .desktop-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f1f3f4;
+        }
+
+        .desktop-header h3 {
+            color: #2c3e50;
+            font-size: 1.5rem;
+        }
+
+        .desktop-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .desktop-viewer {
+            position: relative;
+            min-height: 400px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .desktop-placeholder {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        }
+
+        .placeholder-content {
+            text-align: center;
+            color: #6c757d;
+        }
+
+        .placeholder-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        .placeholder-content h4 {
+            margin-bottom: 10px;
+            color: #495057;
+        }
+
+        #desktopImage {
+            display: none;
+        }
+
+        #desktopImage.active {
+            display: block;
+        }
+
         .history-panel {
             background: white;
             border-radius: 20px;
@@ -312,6 +383,9 @@
                     <button class="btn btn-secondary" onclick="getVoiceCommand()">
                         🎤 Voice
                     </button>
+                    <button class="btn btn-secondary" id="desktopToggle" onclick="toggleDesktopStream()">
+                        📺 Desktop
+                    </button>
                 </div>
                 
                 <div class="loading" id="loading">
@@ -334,6 +408,27 @@
             <div id="currentCommand" class="command-container" style="display: none;"></div>
         </div>
 
+        <!-- Desktop View Panel -->
+        <div class="desktop-panel" id="desktopPanel" style="display: none;">
+            <div class="desktop-header">
+                <h3>🖥️ Desktop View</h3>
+                <div class="desktop-controls">
+                    <span id="desktopStatus" class="status-badge status-ready">Ready</span>
+                    <button class="btn btn-secondary" onclick="toggleDesktopStream()">Stop</button>
+                </div>
+            </div>
+            <div class="desktop-viewer">
+                <img id="desktopImage" src="" alt="Desktop Stream" style="width: 100%; height: auto; border-radius: 8px;">
+                <div id="desktopPlaceholder" class="desktop-placeholder">
+                    <div class="placeholder-content">
+                        <div class="placeholder-icon">🖥️</div>
+                        <h4>Desktop Stream</h4>
+                        <p>Click "Desktop" to start viewing your desktop</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="history-panel">
             <div class="history-header">
                 <h3>Command History</h3>
@@ -348,11 +443,47 @@
     <script>
         const socket = io();
         let currentCommandId = null;
+        let desktopStreaming = false;
 
         // Socket event listeners
         socket.on('command_update', function(data) {
             updateCommandDisplay(data);
             loadHistory(); // Refresh history when command updates
+        });
+
+        // Desktop streaming event listeners
+        socket.on('desktop_frame', function(data) {
+            const desktopImage = document.getElementById('desktopImage');
+            const placeholder = document.getElementById('desktopPlaceholder');
+            
+            if (data.image) {
+                desktopImage.src = 'data:image/jpeg;base64,' + data.image;
+                desktopImage.classList.add('active');
+                placeholder.style.display = 'none';
+            }
+        });
+
+        socket.on('desktop_stream_status', function(data) {
+            const statusElement = document.getElementById('desktopStatus');
+            const toggleButton = document.getElementById('desktopToggle');
+            
+            if (data.status === 'started') {
+                statusElement.textContent = 'Streaming';
+                statusElement.className = 'status-badge status-executing';
+                toggleButton.innerHTML = '⏹️ Stop Desktop';
+                desktopStreaming = true;
+            } else if (data.status === 'stopped') {
+                statusElement.textContent = 'Stopped';
+                statusElement.className = 'status-badge status-ready';
+                toggleButton.innerHTML = '📺 Desktop';
+                desktopStreaming = false;
+                
+                // Hide desktop image and show placeholder
+                const desktopImage = document.getElementById('desktopImage');
+                const placeholder = document.getElementById('desktopPlaceholder');
+                desktopImage.classList.remove('active');
+                placeholder.style.display = 'flex';
+            }
         });
 
         function handleKeyPress(event) {
@@ -363,6 +494,23 @@
 
         function setExample(text) {
             document.getElementById('commandInput').value = text;
+        }
+
+        function toggleDesktopStream() {
+            const desktopPanel = document.getElementById('desktopPanel');
+            
+            // Show the desktop panel if hidden
+            if (desktopPanel.style.display === 'none') {
+                desktopPanel.style.display = 'block';
+            }
+            
+            if (!desktopStreaming) {
+                // Start streaming
+                socket.emit('start_desktop_stream');
+            } else {
+                // Stop streaming
+                socket.emit('stop_desktop_stream');
+            }
         }
 
         async function processCommand() {
