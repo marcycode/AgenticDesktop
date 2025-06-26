@@ -5,8 +5,123 @@ import subprocess
 import os
 import shutil
 import glob
+import platform
+import sys
 
 selected_file = None  # For select_file/locate_file action
+
+def get_os_type():
+    """Detect the operating system type"""
+    return platform.system().lower()
+
+def open_application(app_name):
+    """Cross-platform application opener with intelligent app detection"""
+    os_type = get_os_type()
+    
+    try:
+        # Try to use system info for smart app selection
+        try:
+            from system_info import get_best_app_for_task, detect_available_apps
+            
+            # Map common app requests to categories
+            app_mappings = {
+                'calculator': 'calculator',
+                'calc': 'calculator',
+                'chrome': 'browser',
+                'browser': 'browser',
+                'firefox': 'browser',
+                'editor': 'text_editor',
+                'notepad': 'text_editor',
+                'terminal': 'terminal',
+                'console': 'terminal',
+                'file-manager': 'file_manager',
+                'files': 'file_manager',
+                'nautilus': 'file_manager'
+            }
+            
+            app_lower = app_name.lower()
+            
+            # Check if we can find a better app match
+            for key, category in app_mappings.items():
+                if key in app_lower or app_lower in key:
+                    best_app = get_best_app_for_task(category)
+                    if best_app:
+                        print(f"[Smart App Selection] Using {best_app} for {app_name}")
+                        app_name = best_app
+                        break
+        except ImportError:
+            pass  # Fall back to manual detection
+        
+        if os_type == "windows":
+            # Windows
+            if os.path.exists(app_name):
+                subprocess.Popen(app_name)
+            else:
+                subprocess.Popen(["cmd", "/c", "start", "", app_name])
+        elif os_type == "darwin":
+            # macOS
+            if os.path.exists(app_name):
+                subprocess.Popen(["open", app_name])
+            else:
+                subprocess.Popen(["open", "-a", app_name])
+        else:
+            # Linux and other Unix-like systems
+            if os.path.exists(app_name):
+                subprocess.Popen(["xdg-open", app_name])
+            else:
+                # Manual fallback for common apps
+                common_apps = {
+                    'calculator': ['gnome-calculator', 'kcalc', 'xcalc', 'galculator', 'qalculate-gtk'],
+                    'chrome': ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'],
+                    'firefox': ['firefox', 'firefox-esr'],
+                    'editor': ['gedit', 'kate', 'mousepad', 'leafpad'],
+                    'terminal': ['gnome-terminal', 'konsole', 'xterm', 'alacritty', 'terminator'],
+                    'file-manager': ['nautilus', 'dolphin', 'thunar', 'pcmanfm', 'nemo'],
+                }
+                
+                app_lower = app_name.lower()
+                apps_to_try = [app_name]  # Try the direct name first
+                
+                # Add alternatives based on common mappings
+                for key, app_list in common_apps.items():
+                    if key in app_lower or app_lower in key:
+                        apps_to_try.extend(app_list)
+                
+                # Try each application
+                for app in apps_to_try:
+                    try:
+                        subprocess.Popen([app], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        print(f"[Open App] Successfully opened: {app}")
+                        return
+                    except FileNotFoundError:
+                        continue
+                
+                # If nothing worked, try xdg-open as final fallback
+                try:
+                    subprocess.Popen(["xdg-open", app_name])
+                    print(f"[Open App] Opened via xdg-open: {app_name}")
+                except Exception:
+                    raise Exception(f"Could not find or open application: {app_name}")
+                
+    except Exception as e:
+        print(f"[!] Failed to open app '{app_name}': {e}")
+
+def open_file_cross_platform(file_path):
+    """Cross-platform file opener"""
+    os_type = get_os_type()
+    
+    try:
+        if os_type == "windows":
+            os.startfile(file_path)
+        elif os_type == "darwin":
+            subprocess.Popen(["open", file_path])
+        else:
+            # Linux and other Unix-like systems
+            subprocess.Popen(["xdg-open", file_path])
+        
+        print(f"[Open File] Opened file: {file_path}")
+    except Exception as e:
+        print(f"[!] Failed to open file: {e}")
 
 def expand_user_path(path):
     # Expand ~, and map common folders like Downloads, Desktop, Documents
@@ -31,19 +146,10 @@ def execute_steps(steps):
         action = step.get("action", "").lower()
         if action == "open_app":
             app = step.get("app", "")
-            # Try to open the app using 'start' (Windows)
-            try:
-                if app:
-                    # If a path is provided, use it directly
-                    if os.path.exists(app):
-                        subprocess.Popen(app)
-                    else:
-                        # Use 'start' to open by app name
-                        subprocess.Popen(["cmd", "/c", "start", "", app])
-                else:
-                    print(f"[!] No app specified in step: {step}")
-            except Exception as e:
-                print(f"[!] Failed to open app '{app}': {e}")
+            if app:
+                open_application(app)
+            else:
+                print(f"[!] No app specified in step: {step}")
         elif action == "search":
             query = step.get("query", "")
             webbrowser.open(f"https://www.google.com/search?q={query}")
@@ -112,11 +218,7 @@ def execute_steps(steps):
         elif action == "open_file":
             filename = expand_user_path(step.get("filename") or step.get("file_path"))
             if filename:
-                try:
-                    os.startfile(filename)
-                    print(f"[Open File] Opened file: {filename}")
-                except Exception as e:
-                    print(f"[!] Failed to open file: {e}")
+                open_file_cross_platform(filename)
             else:
                 print("[!] open_file missing filename")
         else:
