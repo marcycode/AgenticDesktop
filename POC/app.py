@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify, session
 from flask_socketio import SocketIO, emit
 import uuid
-from prompt_agent import get_command_steps
+from prompt_agent import get_command_steps, get_opposite_command_steps
 from desktop_actions import execute_steps
 from speech_input import get_voice_command
 import json
@@ -118,6 +118,7 @@ def process_command():
                 steps = get_command_steps(user_input)
                 command_history[command_id]['steps'] = steps
                 command_history[command_id]['status'] = 'ready'
+                command_history[command_id]['undone'] = False
                 
                 # emit update to client
                 socketio.emit('command_update', command_history[command_id])
@@ -133,6 +134,33 @@ def process_command():
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/undo_command/<command_id>', methods=['POST'])
+def undo_command(command_id):
+    print(f"[Undo Command] Request to undo command {command_id}")
+    if command_id in command_history:
+        command_data = command_history[command_id]
+        if command_data['undone'] == True:
+            return jsonify({'error': 'Command already undone'}), 400
+        
+        def process_in_background():
+            try:
+                opposite_steps = get_opposite_command_steps(command_data['steps'])
+                
+                
+                #for step in opposite_steps:
+                #    execute_steps([step])
+            except Exception as e:
+                command_history[command_id]['status'] = 'error'
+                command_history[command_id]['error'] = str(e)
+            
+        thread = threading.Thread(target=process_in_background)
+        thread.start()
+        
+        command_data['status'] = 'undone'
+        command_data['undone'] = True
+        return jsonify({'success': True}), 200
+    return jsonify({'error': 'Command not found or already undone'}), 500
 
 @app.route('/api/execute_command', methods=['POST'])
 def execute_command():
