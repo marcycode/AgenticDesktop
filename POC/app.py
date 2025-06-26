@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify, session
 from flask_socketio import SocketIO, emit
 import uuid
-from prompt_agent import get_command_steps
+from prompt_agent import get_command_steps, get_opposite_command_steps
 from desktop_actions import execute_steps
 from speech_input import get_voice_command
 import json
@@ -122,9 +122,11 @@ def process_command():
                     command_history[command_id]['status'] = 'error'
                     command_history[command_id]['error'] = steps.get('message', 'Unknown error')
                     command_history[command_id]['steps'] = None
+                    command_history[command_id]['undone'] = False
                 else:
                     command_history[command_id]['steps'] = steps
                     command_history[command_id]['status'] = 'ready'
+                    command_history[command_id]['undone'] = False
                 
                 # emit update to client
                 socketio.emit('command_update', command_history[command_id])
@@ -138,6 +140,46 @@ def process_command():
         
         return jsonify({'command_id': command_id, 'status': 'processing'})
     
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/undo_command', methods=['POST'])
+def undo_command():
+    try:
+        old_command_id = request.json.get('command_id')
+        
+        if old_command_id in command_history:
+            old_command_data = command_history[old_command_id]
+            command_id = str(uuid.uuid4())
+
+            # store initial command
+            command_history[command_id] = {
+                'id': command_id,
+                'command': old_command_data['command'] + " (undo)",
+                'status': 'processing',
+                'steps': None,
+                'timestamp': time.time()
+            }
+
+            def process_in_background():
+                # process command in background
+                try:
+                    opposite_steps = get_opposite_command_steps(old_command_data['steps'])
+                    command_history[command_id]['steps'] = opposite_steps
+                    command_history[command_id]['status'] = 'ready'
+                    command_history[command_id]['undone'] = False
+                        
+                    # emit update to client
+                    socketio.emit('command_update', command_history[command_id])
+                except Exception as e:
+                    command_history[command_id]['status'] = 'error'
+                    command_history[command_id]['error'] = str(e)
+                    socketio.emit('command_update', command_history[command_id])
+                
+            thread = threading.Thread(target=process_in_background)
+            thread.start()
+            
+            return jsonify({'command_id': command_id, 'status': 'processing'})    
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
