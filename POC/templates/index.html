@@ -569,6 +569,25 @@
             }
         }
 
+        async function undoCommand(commandId) {
+            try {
+                const response = await fetch('/api/undo_command', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ command_id: commandId })
+                });
+
+                const data = await response.json();
+                console.log('Undo successful:', data);
+                
+            } catch (error) {
+                console.error('Error undoing command:', error);
+                alert('Error undoing command: ' + error.message);
+            }
+        }
+
         async function getVoiceCommand() {
             const button = event.target;
             const originalText = button.innerHTML;
@@ -656,7 +675,6 @@
                     const statusClass = `status-${command.status}`;
                     const statusText = command.status.charAt(0).toUpperCase() + command.status.slice(1);
                     const date = new Date(command.timestamp * 1000).toLocaleString();
-                    
                     let stepsHtml = '';
                     if (command.steps && Array.isArray(command.steps)) {
                         stepsHtml = `
@@ -679,6 +697,7 @@
                             <div style="font-size: 12px; color: #6c757d; margin-bottom: 10px;">${date}</div>
                             ${stepsHtml}
                             ${command.error ? `<div style="color: #dc3545; margin-top: 10px;"><strong>Error:</strong> ${command.error}</div>` : ''}
+                            ${command.status === 'completed' ? `<button class="btn btn-warning" onclick="undoCommand('${command.id}')">Undo</button>` : ''}
                         </div>
                     `;
                 }).join('');
