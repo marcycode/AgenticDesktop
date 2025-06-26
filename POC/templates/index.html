@@ -222,6 +222,21 @@
             gap: 15px;
         }
 
+        .desktop-selector {
+            padding: 8px 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            min-width: 180px;
+        }
+
+        .desktop-selector:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+        }
+
         .desktop-viewer {
             position: relative;
             min-height: 400px;
@@ -411,8 +426,11 @@
         <!-- Desktop View Panel -->
         <div class="desktop-panel" id="desktopPanel" style="display: none;">
             <div class="desktop-header">
-                <h3>🖥️ Desktop View</h3>
+                <h3>🖥️ Virtual Desktop View</h3>
                 <div class="desktop-controls">
+                    <select id="desktopSelector" class="desktop-selector" onchange="changeDesktop()">
+                        <option value="">Select Desktop...</option>
+                    </select>
                     <span id="desktopStatus" class="status-badge status-ready">Ready</span>
                     <button class="btn btn-secondary" onclick="toggleDesktopStream()">Stop</button>
                 </div>
@@ -444,11 +462,20 @@
         const socket = io();
         let currentCommandId = null;
         let desktopStreaming = false;
+        let virtualDesktops = [];
+        let selectedDesktopId = null;
 
         // Socket event listeners
         socket.on('command_update', function(data) {
             updateCommandDisplay(data);
             loadHistory(); // Refresh history when command updates
+        });
+
+        // Virtual desktop info
+        socket.on('virtual_desktops', function(data) {
+            virtualDesktops = data.desktops;
+            updateDesktopSelector();
+            console.log(`[Virtual Desktop] Detected ${data.os_type} with ${data.desktops.length} virtual desktops`);
         });
 
         // Desktop streaming event listeners
@@ -460,6 +487,11 @@
                 desktopImage.src = 'data:image/jpeg;base64,' + data.image;
                 desktopImage.classList.add('active');
                 placeholder.style.display = 'none';
+                
+                // Update UI to show which desktop is being streamed
+                if (data.desktop_id !== null) {
+                    document.getElementById('desktopSelector').value = data.desktop_id;
+                }
             }
         });
 
@@ -472,17 +504,29 @@
                 statusElement.className = 'status-badge status-executing';
                 toggleButton.innerHTML = '⏹️ Stop Desktop';
                 desktopStreaming = true;
+                
+                if (data.desktop_id !== undefined) {
+                    selectedDesktopId = data.desktop_id;
+                    const desktopName = virtualDesktops.find(d => d.id === data.desktop_id)?.name || 'Current';
+                    statusElement.textContent = `Streaming ${desktopName}`;
+                }
             } else if (data.status === 'stopped') {
                 statusElement.textContent = 'Stopped';
                 statusElement.className = 'status-badge status-ready';
                 toggleButton.innerHTML = '📺 Desktop';
                 desktopStreaming = false;
+                selectedDesktopId = null;
                 
                 // Hide desktop image and show placeholder
                 const desktopImage = document.getElementById('desktopImage');
                 const placeholder = document.getElementById('desktopPlaceholder');
                 desktopImage.classList.remove('active');
                 placeholder.style.display = 'flex';
+            } else if (data.status === 'desktop_changed') {
+                selectedDesktopId = data.desktop_id;
+                const desktopName = virtualDesktops.find(d => d.id === data.desktop_id)?.name || 'Current';
+                statusElement.textContent = `Streaming ${desktopName}`;
+                console.log(`[Virtual Desktop] Now streaming ${desktopName}`);
             }
         });
 
@@ -496,20 +540,92 @@
             document.getElementById('commandInput').value = text;
         }
 
+        function updateDesktopSelector() {
+            const selector = document.getElementById('desktopSelector');
+            selector.innerHTML = '<option value="">Current Desktop</option>';
+            
+            virtualDesktops.forEach(desktop => {
+                const option = document.createElement('option');
+                option.value = desktop.id;
+                option.textContent = `${desktop.name}${desktop.active ? ' (Active)' : ''}`;
+                if (desktop.active) {
+                    option.selected = true;
+                    selectedDesktopId = desktop.id;
+                }
+                selector.appendChild(option);
+            });
+        }
+
+        function changeDesktop() {
+            const selector = document.getElementById('desktopSelector');
+            const newDesktopId = selector.value === '' ? null : parseInt(selector.value);
+            
+            if (newDesktopId !== selectedDesktopId) {
+                selectedDesktopId = newDesktopId;
+                
+                if (desktopStreaming) {
+                    // Change desktop being streamed
+                    socket.emit('change_stream_desktop', { desktop_id: selectedDesktopId });
+                }
+                
+                console.log(`[Virtual Desktop] Selected desktop: ${selectedDesktopId}`);
+            }
+        }
+
         function toggleDesktopStream() {
             const desktopPanel = document.getElementById('desktopPanel');
             
             // Show the desktop panel if hidden
             if (desktopPanel.style.display === 'none') {
                 desktopPanel.style.display = 'block';
+                // Load virtual desktops if not already loaded
+                if (virtualDesktops.length === 0) {
+                    loadVirtualDesktops();
+                }
             }
             
             if (!desktopStreaming) {
-                // Start streaming
-                socket.emit('start_desktop_stream');
+                // Start streaming with selected desktop
+                socket.emit('start_desktop_stream', { desktop_id: selectedDesktopId });
             } else {
                 // Stop streaming
                 socket.emit('stop_desktop_stream');
+            }
+        }
+
+        async function loadVirtualDesktops() {
+            try {
+                const response = await fetch('/api/virtual_desktops');
+                const data = await response.json();
+                
+                if (data.desktops) {
+                    virtualDesktops = data.desktops;
+                    updateDesktopSelector();
+                    console.log(`[Virtual Desktop] Loaded ${data.desktops.length} virtual desktops`);
+                }
+            } catch (error) {
+                console.error('Error loading virtual desktops:', error);
+            }
+        }
+
+        async function switchToDesktop(desktopId) {
+            try {
+                const response = await fetch('/api/switch_desktop', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ desktop_id: desktopId })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    console.log(`[Virtual Desktop] Switched to desktop ${desktopId}`);
+                } else {
+                    console.error('[Virtual Desktop] Failed to switch desktop');
+                }
+            } catch (error) {
+                console.error('Error switching desktop:', error);
             }
         }
 

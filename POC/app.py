@@ -11,6 +11,7 @@ import base64
 import io
 import mss
 from PIL import Image
+from virtual_desktop import virtual_desktop_manager
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here' # left blank is for now
@@ -22,71 +23,113 @@ command_history = {}
 # Desktop streaming variables
 desktop_streaming = False
 desktop_stream_thread = None
-
-def capture_desktop():
-    """Capture desktop screenshot and return as base64 encoded image"""
-    try:
-        with mss.mss() as sct:
-            # Capture the entire screen (monitor 1)
-            monitor = sct.monitors[1]
-            screenshot = sct.grab(monitor)
-            
-            # Convert to PIL Image
-            img = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
-            
-            # Resize image for better performance (max width 1280)
-            width, height = img.size
-            if width > 1280:
-                ratio = 1280 / width
-                new_height = int(height * ratio)
-                img = img.resize((1280, new_height), Image.Resampling.LANCZOS)
-            
-            # Convert to base64
-            buffer = io.BytesIO()
-            img.save(buffer, format='JPEG', quality=85, optimize=True)
-            img_str = base64.b64encode(buffer.getvalue()).decode()
-            
-            return img_str
-    except Exception as e:
-        print(f"Error capturing desktop: {e}")
-        return None
+current_desktop_id = None  # Track which desktop we're streaming
 
 def desktop_streaming_worker():
-    """Background worker for desktop streaming"""
-    global desktop_streaming
+    """Background worker for virtual desktop streaming"""
+    global desktop_streaming, current_desktop_id
     while desktop_streaming:
         try:
-            screenshot = capture_desktop()
+            screenshot = virtual_desktop_manager.capture_desktop(current_desktop_id)
             if screenshot:
-                socketio.emit('desktop_frame', {'image': screenshot})
+                socketio.emit('desktop_frame', {
+                    'image': screenshot,
+                    'desktop_id': current_desktop_id
+                })
             time.sleep(0.1)  # 10 FPS
         except Exception as e:
             print(f"Desktop streaming error: {e}")
             time.sleep(1)
 
+@app.route('/api/virtual_desktops')
+def get_virtual_desktops():
+    """Get list of available virtual desktops"""
+    try:
+        desktops = virtual_desktop_manager.get_virtual_desktops()
+        return jsonify({
+            'desktops': desktops,
+            'os_type': virtual_desktop_manager.os_type,
+            'desktop_environment': virtual_desktop_manager.desktop_environment
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/switch_desktop', methods=['POST'])
+def switch_desktop():
+    """Switch to a specific virtual desktop"""
+    try:
+        data = request.json
+        desktop_id = data.get('desktop_id')
+        
+        if desktop_id is None:
+            return jsonify({'error': 'desktop_id required'}), 400
+        
+        success = virtual_desktop_manager.switch_to_desktop(desktop_id)
+        return jsonify({'success': success})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @socketio.on('start_desktop_stream')
-def handle_start_desktop_stream():
-    """Start desktop streaming"""
-    global desktop_streaming, desktop_stream_thread
+def handle_start_desktop_stream(data=None):
+    """Start desktop streaming for specific virtual desktop"""
+    global desktop_streaming, desktop_stream_thread, current_desktop_id
+    
+    # Get desktop_id from data, default to current desktop
+    desktop_id = None
+    if data and isinstance(data, dict):
+        desktop_id = data.get('desktop_id')
+    
+    current_desktop_id = desktop_id
+    
     if not desktop_streaming:
         desktop_streaming = True
         desktop_stream_thread = threading.Thread(target=desktop_streaming_worker)
         desktop_stream_thread.daemon = True
         desktop_stream_thread.start()
-        emit('desktop_stream_status', {'status': 'started'})
-        print("[Desktop Stream] Started desktop streaming")
+        
+        emit('desktop_stream_status', {
+            'status': 'started',
+            'desktop_id': current_desktop_id
+        })
+        print(f"[Desktop Stream] Started streaming desktop {current_desktop_id}")
 
 @socketio.on('stop_desktop_stream')
 def handle_stop_desktop_stream():
     """Stop desktop streaming"""
-    global desktop_streaming
+    global desktop_streaming, current_desktop_id
     desktop_streaming = False
+    current_desktop_id = None
     emit('desktop_stream_status', {'status': 'stopped'})
     print("[Desktop Stream] Stopped desktop streaming")
+
+@socketio.on('change_stream_desktop')
+def handle_change_stream_desktop(data):
+    """Change which desktop is being streamed without stopping stream"""
+    global current_desktop_id
+    
+    desktop_id = data.get('desktop_id')
+    if desktop_id is not None:
+        current_desktop_id = desktop_id
+        emit('desktop_stream_status', {
+            'status': 'desktop_changed',
+            'desktop_id': current_desktop_id
+        })
+        print(f"[Desktop Stream] Changed to streaming desktop {current_desktop_id}")
 
 @socketio.on('connect')
 def handle_connect():
     print(f"[SocketIO] Client connected: {request.sid}")
+    # Send virtual desktop info on connect
+    try:
+        desktops = virtual_desktop_manager.get_virtual_desktops()
+        emit('virtual_desktops', {
+            'desktops': desktops,
+            'os_type': virtual_desktop_manager.os_type,
+            'desktop_environment': virtual_desktop_manager.desktop_environment
+        })
+    except Exception as e:
+        print(f"[SocketIO] Error sending desktop info: {e}")
 
 @socketio.on('disconnect')
 def handle_disconnect():
