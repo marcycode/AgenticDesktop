@@ -133,7 +133,7 @@ def get_opposite_command_steps(command_steps):
         model="gpt-4",
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": command_steps}
+            {"role": "user", "content": json.dumps(command_steps)}
         ],
         temperature=0.2
     )
