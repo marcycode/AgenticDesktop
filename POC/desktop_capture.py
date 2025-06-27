@@ -4,6 +4,7 @@ import base64
 import io
 from PIL import Image
 import os
+import platform
 from system_info import is_wayland
 import mss
 
@@ -166,10 +167,25 @@ def capture_desktop_x11():
         
         return img_str
 
+def capture_desktop_macos():
+    """Capture desktop screenshot on macOS using screencapture"""
+    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+        try:
+            # Use macOS screencapture command
+            result = subprocess.run(['screencapture', '-x', tmp.name], 
+                                  check=True, capture_output=True, timeout=10)
+            return _process_screenshot_file(tmp.name)
+        finally:
+            if os.path.exists(tmp.name):
+                os.unlink(tmp.name)
+
 def capture_desktop():
     """Capture desktop screenshot, automatically choosing the right method"""
     try:
-        if is_wayland():
+        # Check if we're on macOS
+        if platform.system().lower() == 'darwin':
+            return capture_desktop_macos()
+        elif is_wayland():
             return capture_desktop_wayland()
         else:
             return capture_desktop_x11()

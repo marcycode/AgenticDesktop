@@ -82,7 +82,7 @@ sudo pacman -S gnome-screenshot grim wayshot flameshot wl-clipboard
 
 ### Getting Started
 1. Start the application: `python app.py`
-2. Open browser to `http://localhost:5000`
+2. Open browser to `http://localhost:5001`
 3. Click "🤖 Agent Workspace" to open workspace panel
 4. Click "Create Workspace" to set up agent workspace
 5. Start streaming to monitor agent activity

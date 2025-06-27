@@ -19,8 +19,10 @@ def get_system_info():
     return info
 
 def detect_desktop_environment():
-    """Detect the desktop environment on Linux"""
-    if platform.system().lower() != 'linux':
+    """Detect the desktop environment on Linux and macOS"""
+    if platform.system().lower() == 'darwin':
+        return 'macos'
+    elif platform.system().lower() != 'linux':
         return None
     
     desktop_env = os.environ.get('XDG_CURRENT_DESKTOP', '').lower()

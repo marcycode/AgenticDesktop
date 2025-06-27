@@ -75,6 +75,21 @@ def wayland_type_text(text):
     
     return False
 
+def macos_type_text(text):
+    """Type text using macOS-compatible methods"""
+    try:
+        # Use AppleScript to type text
+        escaped_text = text.replace('"', '\\"').replace("'", "\\'")
+        subprocess.run([
+            'osascript', '-e',
+            f'tell application "System Events" to keystroke "{escaped_text}"'
+        ], check=True, timeout=10)
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    
+    return False
+
 def wayland_press_key(key):
     """Press key using Wayland-compatible methods"""
     try:
@@ -104,6 +119,31 @@ def wayland_press_key(key):
     try:
         # Try using xdotool via XWayland
         subprocess.run(['xdotool', 'key', key], check=True, timeout=5)
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    
+    return False
+
+def macos_press_key(key):
+    """Press key using macOS-compatible methods"""
+    try:
+        # Map common keys to macOS key codes
+        key_map = {
+            'enter': 'return',
+            'return': 'return',
+            'space': 'space',
+            'tab': 'tab',
+            'escape': 'escape',
+            'backspace': 'delete',
+            'delete': 'forward delete'
+        }
+        macos_key = key_map.get(key.lower(), key.lower())
+        
+        subprocess.run([
+            'osascript', '-e',
+            f'tell application "System Events" to key code {macos_key}'
+        ], check=True, timeout=5)
         return True
     except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
         pass
@@ -253,10 +293,21 @@ def execute_steps(steps):
             msg = step.get("text", "")
             time.sleep(2)
             
-            # Try Wayland-compatible typing first, then fall back to PyAutoGUI
+            # Try platform-specific typing first, then fall back to PyAutoGUI
             try:
-                from system_info import is_wayland
-                if is_wayland():
+                from system_info import detect_desktop_environment
+                desktop_env = detect_desktop_environment()
+                
+                if desktop_env == 'macos':
+                    if macos_type_text(msg):
+                        print(f"[Type] macOS typing successful: {msg}")
+                    else:
+                        print(f"[Type] macOS typing failed, trying PyAutoGUI fallback")
+                        if pyautogui:
+                            pyautogui.typewrite(msg)
+                        else:
+                            print(f"[Type] PyAutoGUI not available, skipping typing")
+                elif is_wayland():
                     if wayland_type_text(msg):
                         print(f"[Type] Wayland typing successful: {msg}")
                     else:
@@ -281,10 +332,21 @@ def execute_steps(steps):
         elif action == "press":
             key = step.get("key", "enter")
             
-            # Try Wayland-compatible key press first, then fall back to PyAutoGUI
+            # Try platform-specific key press first, then fall back to PyAutoGUI
             try:
-                from system_info import is_wayland
-                if is_wayland():
+                from system_info import detect_desktop_environment
+                desktop_env = detect_desktop_environment()
+                
+                if desktop_env == 'macos':
+                    if macos_press_key(key):
+                        print(f"[Press] macOS key press successful: {key}")
+                    else:
+                        print(f"[Press] macOS key press failed, trying PyAutoGUI fallback")
+                        if pyautogui:
+                            pyautogui.press(key)
+                        else:
+                            print(f"[Press] PyAutoGUI not available, skipping key press")
+                elif is_wayland():
                     if wayland_press_key(key):
                         print(f"[Press] Wayland key press successful: {key}")
                     else:
