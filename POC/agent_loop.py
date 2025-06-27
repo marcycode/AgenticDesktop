@@ -57,7 +57,7 @@ def capture_screen():
         return img_bytes, img_b64
 
 def ocr_screen_with_coordinates(img_bytes):
-    """Extract text with coordinate annotations from the screen, robust scaling for Retina/HiDPI displays."""
+    """Extract text with coordinate annotations from the screen, merging nearby words into UI elements."""
     image = types.Image(content=img_bytes)
     response = vision_client.text_detection(image=image)
     texts = response.text_annotations
@@ -78,18 +78,21 @@ def ocr_screen_with_coordinates(img_bytes):
         screenshot_height = screenshot.height
         scale_x = screen_width / screenshot_width
         scale_y = screen_height / screenshot_height
-        # Optional: print debug info
         print(f"[Debug] Screen: {screen_width}x{screen_height}, Screenshot: {screenshot_width}x{screenshot_height}, Scale: x={scale_x:.3f}, y={scale_y:.3f}")
     
-    # Group by text content for instance tracking
-    text_groups = {}
+    # Process individual text elements first
+    text_elements = []
     for text in texts[1:]:
-        text_content = text.description
+        text_content = text.description.strip()
+        if not text_content:
+            continue
+            
         vertices = text.bounding_poly.vertices
         x_coords = [vertex.x for vertex in vertices]
         y_coords = [vertex.y for vertex in vertices]
         center_x = sum(x_coords) / len(x_coords)
         center_y = sum(y_coords) / len(y_coords)
+        
         # Scale to screen coordinates
         screen_x = int(center_x * scale_x)
         screen_y = int(center_y * scale_y)
@@ -99,38 +102,138 @@ def ocr_screen_with_coordinates(img_bytes):
             'x2': int(max(x_coords) * scale_x),
             'y2': int(max(y_coords) * scale_y)
         }
-        ann = {
+        
+        text_elements.append({
             'text': text_content,
             'x': screen_x,
             'y': screen_y,
-            'bbox': bbox
-        }
+            'bbox': bbox,
+            'width': bbox['x2'] - bbox['x1'],
+            'height': bbox['y2'] - bbox['y1']
+        })
+    
+    # Merge nearby words into UI elements
+    merged_elements = []
+    used_indices = set()
+    
+    # Parameters for merging
+    max_horizontal_gap = 50  # pixels between words horizontally
+    max_vertical_gap = 20    # pixels between words vertically
+    max_height_diff = 15     # max height difference for same line
+    
+    for i, element in enumerate(text_elements):
+        if i in used_indices:
+            continue
+            
+        # Start a new group
+        group = [element]
+        used_indices.add(i)
+        
+        # Find nearby elements horizontally (likely same line)
+        for j, other_element in enumerate(text_elements):
+            if j in used_indices:
+                continue
+                
+            # Check if elements are on roughly the same line
+            height_diff = abs(element['y'] - other_element['y'])
+            if height_diff <= max_height_diff:
+                # Check horizontal distance
+                if element['x'] < other_element['x']:
+                    gap = other_element['bbox']['x1'] - element['bbox']['x2']
+                else:
+                    gap = element['bbox']['x1'] - other_element['bbox']['x2']
+                    
+                if gap <= max_horizontal_gap and gap >= -10:  # Allow slight overlap
+                    group.append(other_element)
+                    used_indices.add(j)
+        
+        # Sort group by x position
+        group.sort(key=lambda x: x['x'])
+        
+        # Merge into single element
+        if len(group) == 1:
+            merged_elements.append(group[0])
+        else:
+            # Calculate merged bounding box
+            min_x = min(elem['bbox']['x1'] for elem in group)
+            max_x = max(elem['bbox']['x2'] for elem in group)
+            min_y = min(elem['bbox']['y1'] for elem in group)
+            max_y = max(elem['bbox']['y2'] for elem in group)
+            
+            # Merge text with spaces
+            merged_text = ' '.join(elem['text'] for elem in group)
+            
+            # Calculate center
+            center_x = (min_x + max_x) // 2
+            center_y = (min_y + max_y) // 2
+            
+            merged_elements.append({
+                'text': merged_text,
+                'x': center_x,
+                'y': center_y,
+                'bbox': {
+                    'x1': min_x,
+                    'y1': min_y,
+                    'x2': max_x,
+                    'y2': max_y
+                },
+                'width': max_x - min_x,
+                'height': max_y - min_y,
+                'merged_from': len(group)
+            })
+    
+    # Add instance tracking for identical text
+    text_groups = {}
+    for element in merged_elements:
+        text_content = element['text']
         if text_content not in text_groups:
             text_groups[text_content] = []
-        text_groups[text_content].append(ann)
+        text_groups[text_content].append(element)
+    
     # Add instance info
     annotations = []
     for text_content, instances in text_groups.items():
         if len(instances) == 1:
-            ann = instances[0]
+            ann = instances[0].copy()
             ann['index'] = 0
             ann['total_instances'] = 1
             annotations.append(ann)
         else:
             for i, ann in enumerate(instances):
-                ann['index'] = i
-                ann['total_instances'] = len(instances)
-                annotations.append(ann)
+                ann_copy = ann.copy()
+                ann_copy['index'] = i
+                ann_copy['total_instances'] = len(instances)
+                annotations.append(ann_copy)
+    
+    # Sort by y position (top to bottom) then x position (left to right)
+    annotations.sort(key=lambda x: (x['y'], x['x']))
+    
+    # Debug output
+    print(f"[OCR Debug] Found {len(merged_elements)} merged elements from {len(text_elements)} individual words")
+    for i, ann in enumerate(annotations[:10]):  # Show first 10
+        merged_info = f" (merged from {ann['merged_from']} words)" if 'merged_from' in ann else ""
+        print(f"  {i+1}. '{ann['text']}' at ({ann['x']}, {ann['y']}){merged_info}")
+    
     return full_text, annotations
 
 def build_llm_prompt(goal, actions_taken, ocr_annotations):
     sysinfo = get_system_info()
     sysinfo_str = f"OS: {sysinfo['os']} {sysinfo['os_version']} | Arch: {sysinfo['architecture']} | Desktop: {sysinfo.get('desktop_environment', 'unknown')}"
     
-    # Format OCR annotations for the prompt
-    ocr_info = "Available clickable text elements on screen:\n"
-    for ann in ocr_annotations:
-        ocr_info += f"- '{ann['text']}' at position ({ann['x']}, {ann['y']})\n"
+    # Format OCR annotations with detailed information
+    ocr_info = "EXACT TEXT ELEMENTS DETECTED BY OCR (use these exact strings for clicking):\n"
+    if not ocr_annotations:
+        ocr_info += "- NO TEXT ELEMENTS DETECTED ON SCREEN\n"
+    else:
+        for i, ann in enumerate(ocr_annotations):
+            merged_info = f" (merged from {ann['merged_from']} words)" if 'merged_from' in ann else ""
+            instance_info = f" [instance {ann['index']+1} of {ann['total_instances']}]" if ann['total_instances'] > 1 else ""
+            ocr_info += f"{i+1}. '{ann['text']}' at position ({ann['x']}, {ann['y']}){merged_info}{instance_info}\n"
+    
+    # Add summary statistics
+    total_elements = len(ocr_annotations)
+    merged_elements = sum(1 for ann in ocr_annotations if 'merged_from' in ann and ann['merged_from'] > 1)
+    ocr_info += f"\nOCR SUMMARY: {total_elements} clickable elements found, {merged_elements} are multi-word elements.\n"
     
     prompt = f'''
 You are an agent controlling a computer only through simulated mouse and keyboard actions.
@@ -144,6 +247,12 @@ Here are the actions you have taken so far:
 {json.dumps(actions_taken, indent=2)}
 
 {ocr_info}
+
+CRITICAL INSTRUCTIONS:
+1. ONLY click on text elements that are EXACTLY listed above. Do NOT guess or approximate text.
+2. Use the EXACT text strings shown in the OCR list for clicking.
+3. If you need to click on something that's not in the OCR list, you cannot do it - find an alternative approach.
+4. Pay attention to instance numbers if there are multiple elements with the same text.
 
 IMPORTANT: Look carefully at the current screen image. If you see evidence that your previous actions were incorrect, made a mistake, or didn't achieve the intended result, you MUST correct course immediately. Don't continue with a flawed approach - adapt and fix the situation.
 
@@ -164,13 +273,14 @@ CURSOR POSITION AWARENESS: Pay special attention to the cursor location in the s
 You can only use these actions:
 - {{"action": "type", "text": "..."}}  # For typing plain text (no modifiers)
 - {{"action": "press", "keys": [key1, key2, ...]}}  # For keyboard shortcuts or modifier keys (e.g., ['command', 't'] for Cmd+T)
-- {{"action": "click_text", "target": "text to click"}}  # Click on text element (use exact text from OCR annotations)
+- {{"action": "click_text", "target": "exact text from OCR list"}}  # Click on text element (use EXACT text from OCR annotations above)
 
 Examples:
 - To type 'hello', use: {{"action": "type", "text": "hello"}}
 - To press Cmd+T (open new tab on macOS), use: {{"action": "press", "keys": ["command", "t"]}}
 - To press Ctrl+W, use: {{"action": "press", "keys": ["ctrl", "w"]}}
 - To click on a button with text "Submit", use: {{"action": "click_text", "target": "Submit"}}
+- To click on a menu item "File", use: {{"action": "click_text", "target": "File"}}
 
 Look at the current screen image and determine what action to take next to achieve your goal. If you need to correct a previous mistake, do so immediately. Pay special attention to the cursor position when deciding mouse movements.
 
@@ -235,6 +345,15 @@ def agent_autorun(goal, max_steps=20):
         screen_text, ocr_annotations = ocr_screen_with_coordinates(img_bytes)
         agent_state['screen_ocr'] = screen_text
         agent_state['ocr_annotations'] = ocr_annotations
+        
+        # Debug: Show OCR results
+        print(f"[Agent] OCR found {len(ocr_annotations)} clickable elements")
+        if ocr_annotations:
+            print("[Agent] Top 5 OCR elements:")
+            for i, ann in enumerate(ocr_annotations[:5]):
+                merged_info = f" (merged from {ann['merged_from']} words)" if 'merged_from' in ann else ""
+                print(f"  {i+1}. '{ann['text']}' at ({ann['x']}, {ann['y']}){merged_info}")
+        
         # 3. Build LLM prompt
         prompt = build_llm_prompt(goal, agent_state['actions_taken'], agent_state['ocr_annotations'])
         agent_state['llm_prompt'] = prompt

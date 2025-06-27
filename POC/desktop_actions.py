@@ -24,22 +24,41 @@ KEY_MAP = {
 def find_text_coordinates(target_text, ocr_annotations):
     """Find coordinates for a text target using OCR annotations"""
     if not ocr_annotations:
+        print(f"[Debug] No OCR annotations available for target: '{target_text}'")
         return None, None
+    
+    target_text = target_text.strip()
+    print(f"[Debug] Looking for target text: '{target_text}'")
+    print(f"[Debug] Available OCR elements: {len(ocr_annotations)}")
     
     # Try exact match first
     for ann in ocr_annotations:
-        if ann['text'].strip() == target_text.strip():
+        if ann['text'].strip() == target_text:
+            print(f"[Debug] Found exact match: '{ann['text']}' at ({ann['x']}, {ann['y']})")
             return ann['x'], ann['y']
     
-    # Try partial match
+    # Try case-insensitive exact match
     for ann in ocr_annotations:
-        if target_text.strip().lower() in ann['text'].strip().lower():
+        if ann['text'].strip().lower() == target_text.lower():
+            print(f"[Debug] Found case-insensitive exact match: '{ann['text']}' at ({ann['x']}, {ann['y']})")
             return ann['x'], ann['y']
     
-    # Try reverse partial match (annotation text in target)
+    # Try partial match (target text is contained in annotation)
     for ann in ocr_annotations:
-        if ann['text'].strip().lower() in target_text.strip().lower():
+        if target_text.lower() in ann['text'].strip().lower():
+            print(f"[Debug] Found partial match (target in annotation): '{ann['text']}' contains '{target_text}' at ({ann['x']}, {ann['y']})")
             return ann['x'], ann['y']
+    
+    # Try reverse partial match (annotation text is contained in target)
+    for ann in ocr_annotations:
+        if ann['text'].strip().lower() in target_text.lower():
+            print(f"[Debug] Found partial match (annotation in target): '{target_text}' contains '{ann['text']}' at ({ann['x']}, {ann['y']})")
+            return ann['x'], ann['y']
+    
+    # Show what we have for debugging
+    print(f"[Debug] No match found for '{target_text}'. Available elements:")
+    for i, ann in enumerate(ocr_annotations[:10]):  # Show first 10
+        print(f"  {i+1}. '{ann['text']}' at ({ann['x']}, {ann['y']})")
     
     return None, None
 
