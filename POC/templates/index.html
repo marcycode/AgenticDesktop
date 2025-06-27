@@ -386,6 +386,9 @@
                     <button class="btn btn-secondary" id="desktopToggle" onclick="toggleDesktopStream()">
                         📺 Desktop
                     </button>
+                    <button class="btn btn-secondary" id="agentWorkspaceToggleBtn" onclick="toggleAgentWorkspacePanel()">
+                        🤖 Agent Workspace
+                    </button>
                 </div>
                 
                 <div class="loading" id="loading">
@@ -429,6 +432,33 @@
             </div>
         </div>
 
+        <!-- Agent Workspace Panel -->
+        <div class="desktop-panel" id="agentWorkspacePanel" style="display: none;">
+            <div class="desktop-header">
+                <h3>🤖 Agent Workspace</h3>
+                <div class="desktop-controls">
+                    <span id="agentWorkspaceStatus" class="status-badge status-ready">Ready</span>
+                    <button class="btn btn-primary" id="createAgentWorkspaceBtn" onclick="createAgentWorkspace()">Create Workspace</button>
+                    <button class="btn btn-secondary" id="agentWorkspaceToggle" onclick="toggleAgentWorkspaceStream()" style="display: none;">Start Stream</button>
+                    <button class="btn btn-secondary" onclick="switchToAgentWorkspace()" style="display: none;" id="switchToAgentBtn">View Agent</button>
+                    <button class="btn btn-secondary" onclick="switchBackToUserWorkspace()" style="display: none;" id="switchBackBtn">Back to User</button>
+                </div>
+            </div>
+            <div class="desktop-viewer">
+                <img id="agentWorkspaceImage" src="" alt="Agent Workspace Stream" style="width: 100%; height: auto; border-radius: 8px;">
+                <div id="agentWorkspacePlaceholder" class="desktop-placeholder">
+                    <div class="placeholder-content">
+                        <div class="placeholder-icon">🤖</div>
+                        <h4>Agent Workspace</h4>
+                        <p>Agent will execute commands in a separate workspace</p>
+                        <div style="margin-top: 15px;">
+                            <div id="workspaceInfo" style="font-size: 14px; color: #6c757d;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="history-panel">
             <div class="history-header">
                 <h3>Command History</h3>
@@ -444,6 +474,8 @@
         const socket = io();
         let currentCommandId = null;
         let desktopStreaming = false;
+        let agentWorkspaceStreaming = false;
+        let workspaceInfo = null;
 
         // Socket event listeners
         socket.on('command_update', function(data) {
@@ -482,6 +514,41 @@
                 const desktopImage = document.getElementById('desktopImage');
                 const placeholder = document.getElementById('desktopPlaceholder');
                 desktopImage.classList.remove('active');
+                placeholder.style.display = 'flex';
+            }
+        });
+
+        // Agent workspace streaming event listeners
+        socket.on('agent_workspace_frame', function(data) {
+            const agentImage = document.getElementById('agentWorkspaceImage');
+            const placeholder = document.getElementById('agentWorkspacePlaceholder');
+            
+            if (data.image) {
+                agentImage.src = 'data:image/jpeg;base64,' + data.image;
+                agentImage.classList.add('active');
+                placeholder.style.display = 'none';
+            }
+        });
+
+        socket.on('agent_workspace_stream_status', function(data) {
+            const statusElement = document.getElementById('agentWorkspaceStatus');
+            const toggleButton = document.getElementById('agentWorkspaceToggle');
+            
+            if (data.status === 'started') {
+                statusElement.textContent = 'Streaming';
+                statusElement.className = 'status-badge status-executing';
+                toggleButton.innerHTML = '⏹️ Stop Stream';
+                agentWorkspaceStreaming = true;
+            } else if (data.status === 'stopped') {
+                statusElement.textContent = 'Ready';
+                statusElement.className = 'status-badge status-ready';
+                toggleButton.innerHTML = '▶️ Start Stream';
+                agentWorkspaceStreaming = false;
+                
+                // Hide agent workspace image and show placeholder
+                const agentImage = document.getElementById('agentWorkspaceImage');
+                const placeholder = document.getElementById('agentWorkspacePlaceholder');
+                agentImage.classList.remove('active');
                 placeholder.style.display = 'flex';
             }
         });
@@ -685,6 +752,135 @@
                 
             } catch (error) {
                 console.error('Error loading history:', error);
+            }
+        }
+
+        // Agent workspace functions
+        function toggleAgentWorkspacePanel() {
+            const panel = document.getElementById('agentWorkspacePanel');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                loadWorkspaceInfo();
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        async function loadWorkspaceInfo() {
+            try {
+                const response = await fetch('/api/workspace/info');
+                const data = await response.json();
+                workspaceInfo = data;
+                
+                const infoDiv = document.getElementById('workspaceInfo');
+                infoDiv.innerHTML = `
+                    Current: Workspace ${data.current_workspace} | 
+                    Agent: ${data.agent_workspace ? `Workspace ${data.agent_workspace}` : 'Not created'} | 
+                    DE: ${data.desktop_environment} | 
+                    Display: ${data.is_wayland ? 'Wayland' : 'X11'}
+                `;
+
+                // Update UI based on workspace state
+                updateAgentWorkspaceUI();
+                
+            } catch (error) {
+                console.error('Error loading workspace info:', error);
+            }
+        }
+
+        function updateAgentWorkspaceUI() {
+            const createBtn = document.getElementById('createAgentWorkspaceBtn');
+            const streamBtn = document.getElementById('agentWorkspaceToggle');
+            const switchToBtn = document.getElementById('switchToAgentBtn');
+            const switchBackBtn = document.getElementById('switchBackBtn');
+
+            if (workspaceInfo && workspaceInfo.agent_workspace !== null) {
+                createBtn.style.display = 'none';
+                streamBtn.style.display = 'inline-block';
+                switchToBtn.style.display = 'inline-block';
+                switchBackBtn.style.display = 'inline-block';
+            } else {
+                createBtn.style.display = 'inline-block';
+                streamBtn.style.display = 'none';
+                switchToBtn.style.display = 'none';
+                switchBackBtn.style.display = 'none';
+            }
+        }
+
+        async function createAgentWorkspace() {
+            const btn = document.getElementById('createAgentWorkspaceBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = 'Creating...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/api/workspace/create_agent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    alert(`Agent workspace created: ${data.agent_workspace}`);
+                    loadWorkspaceInfo(); // Refresh workspace info
+                } else {
+                    alert('Failed to create agent workspace: ' + data.error);
+                }
+                
+            } catch (error) {
+                console.error('Error creating agent workspace:', error);
+                alert('Error creating agent workspace: ' + error.message);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        function toggleAgentWorkspaceStream() {
+            if (!agentWorkspaceStreaming) {
+                socket.emit('start_agent_workspace_stream');
+            } else {
+                socket.emit('stop_agent_workspace_stream');
+            }
+        }
+
+        async function switchToAgentWorkspace() {
+            try {
+                const response = await fetch('/api/workspace/switch_to_agent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    alert(`Switched to agent workspace ${data.agent_workspace}`);
+                } else {
+                    alert('Failed to switch to agent workspace: ' + data.error);
+                }
+                
+            } catch (error) {
+                console.error('Error switching to agent workspace:', error);
+                alert('Error switching to agent workspace: ' + error.message);
+            }
+        }
+
+        async function switchBackToUserWorkspace() {
+            try {
+                const response = await fetch('/api/workspace/switch_back', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    alert(`Switched back to user workspace ${data.user_workspace}`);
+                } else {
+                    alert('Failed to switch back to user workspace: ' + data.error);
+                }
+                
+            } catch (error) {
+                console.error('Error switching back to user workspace:', error);
+                alert('Error switching back to user workspace: ' + error.message);
             }
         }
 

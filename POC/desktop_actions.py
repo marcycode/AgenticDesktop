@@ -1,18 +1,114 @@
-import pyautogui
-import webbrowser
+import os
+import sys
 import time
 import subprocess
-import os
 import shutil
 import glob
 import platform
-import sys
+import webbrowser
+
+# Handle PyAutoGUI import on Wayland systems
+pyautogui = None
+try:
+    # Check if we're on Wayland and set up X11 compatibility if needed
+    from system_info import is_wayland
+    if is_wayland():
+        # For Wayland systems, we need to handle PyAutoGUI carefully
+        # Set DISPLAY if not set (for XWayland compatibility)
+        if 'DISPLAY' not in os.environ:
+            os.environ['DISPLAY'] = ':0'
+        
+        # Disable PyAutoGUI's fail-safe (can cause issues on Wayland)
+        os.environ['PYAUTOGUI_DISABLE_FAILSAFE'] = '1'
+        
+        print("[Desktop Actions] Wayland detected - configuring PyAutoGUI for XWayland compatibility")
+    
+    import pyautogui
+    pyautogui.FAILSAFE = False  # Disable fail-safe for Wayland compatibility
+    
+except ImportError as e:
+    print(f"[Desktop Actions] PyAutoGUI not available: {e}")
+    print("[Desktop Actions] Some typing/clicking actions will be disabled")
+    pyautogui = None
+except Exception as e:
+    print(f"[Desktop Actions] PyAutoGUI initialization failed: {e}")
+    print("[Desktop Actions] Trying alternative approach...")
+    
+    # Try alternative input methods for Wayland
+    try:
+        # Try importing without mouseinfo
+        import pyautogui
+        pyautogui.FAILSAFE = False
+    except Exception as e2:
+        print(f"[Desktop Actions] Alternative PyAutoGUI import also failed: {e2}")
+        print("[Desktop Actions] Using keyboard-only mode")
+        pyautogui = None
 
 selected_file = None  # For select_file/locate_file action
 
 def get_os_type():
     """Detect the operating system type"""
     return platform.system().lower()
+
+def wayland_type_text(text):
+    """Type text using Wayland-compatible methods"""
+    try:
+        # Try using wtype (Wayland typing tool)
+        subprocess.run(['wtype', text], check=True, timeout=10)
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    
+    try:
+        # Try using ydotool (universal input tool)
+        subprocess.run(['ydotool', 'type', text], check=True, timeout=10)
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    
+    try:
+        # Try using xdotool via XWayland
+        subprocess.run(['xdotool', 'type', text], check=True, timeout=10)
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    
+    return False
+
+def wayland_press_key(key):
+    """Press key using Wayland-compatible methods"""
+    try:
+        # Try using wtype for key presses
+        key_map = {
+            'enter': 'Return',
+            'return': 'Return',
+            'space': 'space',
+            'tab': 'Tab',
+            'escape': 'Escape',
+            'backspace': 'BackSpace',
+            'delete': 'Delete'
+        }
+        wayland_key = key_map.get(key.lower(), key)
+        subprocess.run(['wtype', '-k', wayland_key], check=True, timeout=5)
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    
+    try:
+        # Try using ydotool for key presses
+        subprocess.run(['ydotool', 'key', key], check=True, timeout=5)
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    
+    try:
+        # Try using xdotool via XWayland
+        subprocess.run(['xdotool', 'key', key], check=True, timeout=5)
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    
+    return False
 
 def open_application(app_name):
     """Cross-platform application opener with intelligent app detection"""
@@ -156,10 +252,59 @@ def execute_steps(steps):
         elif action == "type":
             msg = step.get("text", "")
             time.sleep(2)
-            pyautogui.typewrite(msg)
+            
+            # Try Wayland-compatible typing first, then fall back to PyAutoGUI
+            try:
+                from system_info import is_wayland
+                if is_wayland():
+                    if wayland_type_text(msg):
+                        print(f"[Type] Wayland typing successful: {msg}")
+                    else:
+                        print(f"[Type] Wayland typing failed, trying PyAutoGUI fallback")
+                        if pyautogui:
+                            pyautogui.typewrite(msg)
+                        else:
+                            print(f"[Type] PyAutoGUI not available, skipping typing")
+                else:
+                    # X11 system, use PyAutoGUI
+                    if pyautogui:
+                        pyautogui.typewrite(msg)
+                    else:
+                        print(f"[Type] PyAutoGUI not available, skipping typing")
+            except ImportError:
+                # Fallback if system_info not available
+                if pyautogui:
+                    pyautogui.typewrite(msg)
+                else:
+                    print(f"[Type] PyAutoGUI not available, skipping typing")
+                    
         elif action == "press":
             key = step.get("key", "enter")
-            pyautogui.press(key)
+            
+            # Try Wayland-compatible key press first, then fall back to PyAutoGUI
+            try:
+                from system_info import is_wayland
+                if is_wayland():
+                    if wayland_press_key(key):
+                        print(f"[Press] Wayland key press successful: {key}")
+                    else:
+                        print(f"[Press] Wayland key press failed, trying PyAutoGUI fallback")
+                        if pyautogui:
+                            pyautogui.press(key)
+                        else:
+                            print(f"[Press] PyAutoGUI not available, skipping key press")
+                else:
+                    # X11 system, use PyAutoGUI
+                    if pyautogui:
+                        pyautogui.press(key)
+                    else:
+                        print(f"[Press] PyAutoGUI not available, skipping key press")
+            except ImportError:
+                # Fallback if system_info not available
+                if pyautogui:
+                    pyautogui.press(key)
+                else:
+                    print(f"[Press] PyAutoGUI not available, skipping key press")
         elif action == "file_search":
             pattern = expand_user_path(step.get("pattern", "*"))
             results = glob.glob(pattern, recursive=True)

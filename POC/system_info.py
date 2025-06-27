@@ -10,6 +10,7 @@ def get_system_info():
         'os_version': platform.version(),
         'architecture': platform.architecture()[0],
         'desktop_environment': detect_desktop_environment(),
+        'display_server': detect_display_server(),
         'available_apps': detect_available_apps(),
         'shell': os.environ.get('SHELL', 'unknown'),
         'home_dir': os.path.expanduser('~'),
@@ -32,6 +33,26 @@ def detect_desktop_environment():
             return os.environ[env_var].lower()
     
     return 'unknown'
+
+def detect_display_server():
+    """Detect if we're running on X11 or Wayland"""
+    session_type = os.environ.get('XDG_SESSION_TYPE', '').lower()
+    if session_type:
+        return session_type
+    
+    # Fallback: check if WAYLAND_DISPLAY is set
+    if os.environ.get('WAYLAND_DISPLAY'):
+        return 'wayland'
+    
+    # Fallback: check if DISPLAY is set (X11)
+    if os.environ.get('DISPLAY'):
+        return 'x11'
+    
+    return 'unknown'
+
+def is_wayland():
+    """Check if we're running on Wayland"""
+    return detect_display_server() == 'wayland'
 
 def detect_available_apps():
     """Detect which applications are available on the system"""
@@ -87,6 +108,8 @@ def get_best_app_for_task(task_type):
         return apps[task_type][0]  # Return the first available app
     
     return None
+
+
 
 def print_system_summary():
     """Print a summary of system capabilities"""

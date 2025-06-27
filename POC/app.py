@@ -4,13 +4,11 @@ import uuid
 from prompt_agent import get_command_steps
 from desktop_actions import execute_steps
 from speech_input import get_voice_command
+from desktop_capture import capture_desktop
+from workspace_manager import workspace_manager
 import json
 import threading
 import time
-import base64
-import io
-import mss
-from PIL import Image
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here' # left blank is for now
@@ -22,33 +20,27 @@ command_history = {}
 # Desktop streaming variables
 desktop_streaming = False
 desktop_stream_thread = None
+agent_workspace_streaming = False
+agent_stream_thread = None
 
-def capture_desktop():
+def capture_desktop_frame():
     """Capture desktop screenshot and return as base64 encoded image"""
     try:
-        with mss.mss() as sct:
-            # Capture the entire screen (monitor 1)
-            monitor = sct.monitors[1]
-            screenshot = sct.grab(monitor)
-            
-            # Convert to PIL Image
-            img = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
-            
-            # Resize image for better performance (max width 1280)
-            width, height = img.size
-            if width > 1280:
-                ratio = 1280 / width
-                new_height = int(height * ratio)
-                img = img.resize((1280, new_height), Image.Resampling.LANCZOS)
-            
-            # Convert to base64
-            buffer = io.BytesIO()
-            img.save(buffer, format='JPEG', quality=85, optimize=True)
-            img_str = base64.b64encode(buffer.getvalue()).decode()
-            
-            return img_str
+        return capture_desktop()
     except Exception as e:
         print(f"Error capturing desktop: {e}")
+        return None
+
+def capture_agent_workspace_frame():
+    """Capture agent workspace screenshot without switching user's view"""
+    try:
+        if workspace_manager.agent_workspace is not None:
+            return workspace_manager.capture_agent_workspace()
+        else:
+            # If no agent workspace, capture current desktop
+            return capture_desktop()
+    except Exception as e:
+        print(f"Error capturing agent workspace: {e}")
         return None
 
 def desktop_streaming_worker():
@@ -56,12 +48,25 @@ def desktop_streaming_worker():
     global desktop_streaming
     while desktop_streaming:
         try:
-            screenshot = capture_desktop()
+            screenshot = capture_desktop_frame()
             if screenshot:
                 socketio.emit('desktop_frame', {'image': screenshot})
             time.sleep(0.1)  # 10 FPS
         except Exception as e:
             print(f"Desktop streaming error: {e}")
+            time.sleep(1)
+
+def agent_workspace_streaming_worker():
+    """Background worker for agent workspace streaming"""
+    global agent_workspace_streaming
+    while agent_workspace_streaming:
+        try:
+            screenshot = capture_agent_workspace_frame()
+            if screenshot:
+                socketio.emit('agent_workspace_frame', {'image': screenshot})
+            time.sleep(0.2)  # 5 FPS for agent workspace
+        except Exception as e:
+            print(f"Agent workspace streaming error: {e}")
             time.sleep(1)
 
 @socketio.on('start_desktop_stream')
@@ -83,6 +88,30 @@ def handle_stop_desktop_stream():
     desktop_streaming = False
     emit('desktop_stream_status', {'status': 'stopped'})
     print("[Desktop Stream] Stopped desktop streaming")
+
+@socketio.on('start_agent_workspace_stream')
+def handle_start_agent_workspace_stream():
+    """Start agent workspace streaming"""
+    global agent_workspace_streaming, agent_stream_thread
+    if not agent_workspace_streaming:
+        # Ensure agent workspace is created
+        if workspace_manager.agent_workspace is None:
+            workspace_manager.create_agent_workspace()
+        
+        agent_workspace_streaming = True
+        agent_stream_thread = threading.Thread(target=agent_workspace_streaming_worker)
+        agent_stream_thread.daemon = True
+        agent_stream_thread.start()
+        emit('agent_workspace_stream_status', {'status': 'started', 'workspace': workspace_manager.agent_workspace})
+        print(f"[Agent Workspace Stream] Started streaming workspace {workspace_manager.agent_workspace}")
+
+@socketio.on('stop_agent_workspace_stream')
+def handle_stop_agent_workspace_stream():
+    """Stop agent workspace streaming"""
+    global agent_workspace_streaming
+    agent_workspace_streaming = False
+    emit('agent_workspace_stream_status', {'status': 'stopped'})
+    print("[Agent Workspace Stream] Stopped agent workspace streaming")
 
 @socketio.on('connect')
 def handle_connect():
@@ -139,6 +168,7 @@ def execute_command():
     try:
         data = request.json
         command_id = data.get('command_id')
+        use_agent_workspace = data.get('use_agent_workspace', True)
         
         if command_id not in command_history:
             return jsonify({'error': 'Command not found'}), 404
@@ -153,7 +183,15 @@ def execute_command():
                 command_history[command_id]['status'] = 'executing'
                 socketio.emit('command_update', command_history[command_id])
                 
-                execute_steps(command_data['steps'])
+                if use_agent_workspace:
+                    # Execute in agent workspace
+                    def action():
+                        return execute_steps(command_data['steps'])
+                    
+                    workspace_manager.run_agent_action_in_workspace(action)
+                else:
+                    # Execute in current workspace
+                    execute_steps(command_data['steps'])
                 
                 command_history[command_id]['status'] = 'completed'
                 socketio.emit('command_update', command_history[command_id])
@@ -167,6 +205,74 @@ def execute_command():
         
         return jsonify({'status': 'executing'})
     
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/workspace/info')
+def get_workspace_info():
+    """Get workspace information"""
+    try:
+        return jsonify({
+            'current_workspace': workspace_manager.current_workspace,
+            'agent_workspace': workspace_manager.agent_workspace,
+            'desktop_environment': workspace_manager.desktop_env,
+            'is_wayland': workspace_manager.is_wayland
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/workspace/create_agent', methods=['POST'])
+def create_agent_workspace():
+    """Create a dedicated workspace for the agent"""
+    try:
+        workspace_num = workspace_manager.create_agent_workspace()
+        if workspace_num is not None:
+            return jsonify({
+                'success': True,
+                'agent_workspace': workspace_num,
+                'message': f'Agent workspace created: {workspace_num}'
+            })
+        else:
+            return jsonify({
+                'success': False, 
+                'error': 'Failed to create agent workspace'
+            }), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/workspace/switch_to_agent', methods=['POST'])
+def switch_to_agent_workspace():
+    """Switch user's view to agent workspace"""
+    try:
+        success = workspace_manager.switch_to_agent_workspace()
+        if success:
+            return jsonify({
+                'success': True,
+                'agent_workspace': workspace_manager.agent_workspace
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to switch to agent workspace'
+            }), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/workspace/switch_back', methods=['POST'])
+def switch_back_to_user_workspace():
+    """Switch back to user's original workspace"""
+    try:
+        success = workspace_manager.switch_back_to_user_workspace()
+        if success:
+            return jsonify({
+                'success': True,
+                'user_workspace': workspace_manager.current_workspace
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to switch back to user workspace'
+            }), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
