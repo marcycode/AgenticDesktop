@@ -112,14 +112,52 @@ def ocr_screen_with_coordinates(img_bytes):
             'height': bbox['y2'] - bbox['y1']
         })
     
+    # Filter out UI control elements that shouldn't be clicked
+    ui_control_words = {
+        'stop', 'start', 'pause', 'reset', 'clear', 'close', 'exit', 'quit',
+        'cancel', 'abort', 'terminate', 'kill', 'end', 'finish', 'done',
+        'refresh', 'reload', 'update', 'save', 'load', 'import', 'export'
+    }
+    
+    # Common UI elements that should not be merged with others
+    ui_element_words = {
+        'images', 'videos', 'news', 'maps', 'books', 'flights', 'finance',
+        'all', 'web', 'search', 'home', 'back', 'forward', 'reload',
+        'file', 'edit', 'view', 'help', 'tools', 'options', 'settings',
+        'profile', 'account', 'login', 'logout', 'sign', 'register'
+    }
+    
+    # Filter out elements that look like UI controls
+    filtered_elements = []
+    for element in text_elements:
+        text_lower = element['text'].lower().strip()
+        
+        # Skip if it's a single word that matches UI controls
+        if text_lower in ui_control_words and len(element['text'].split()) == 1:
+            print(f"[OCR Filter] Skipping UI control: '{element['text']}'")
+            continue
+            
+        # Skip if it's positioned in typical UI control areas (top/bottom edges)
+        if element['y'] < 50 or element['y'] > screen_height - 100:
+            # But allow it if it's clearly part of the main content
+            if element['width'] > 200 or len(element['text']) > 10:
+                filtered_elements.append(element)
+            else:
+                print(f"[OCR Filter] Skipping edge UI element: '{element['text']}' at y={element['y']}")
+                continue
+        else:
+            filtered_elements.append(element)
+    
+    text_elements = filtered_elements
+    
     # Merge nearby words into UI elements
     merged_elements = []
     used_indices = set()
     
-    # Parameters for merging - adjusted for better results
-    max_horizontal_gap = 80  # pixels between words horizontally (increased)
-    max_vertical_gap = 25    # pixels between words vertically (increased)
-    max_height_diff = 20     # max height difference for same line (increased)
+    # Parameters for merging - much more conservative for UI elements
+    max_horizontal_gap = 30  # pixels between words horizontally (reduced from 80)
+    max_vertical_gap = 15    # pixels between words vertically (reduced from 25)
+    max_height_diff = 10     # max height difference for same line (reduced from 20)
     
     for i, element in enumerate(text_elements):
         if i in used_indices:
@@ -143,9 +181,27 @@ def ocr_screen_with_coordinates(img_bytes):
                 else:
                     gap = element['bbox']['x1'] - other_element['bbox']['x2']
                     
-                if gap <= max_horizontal_gap and gap >= -20:  # Allow more overlap
-                    group.append(other_element)
-                    used_indices.add(j)
+                # Much more conservative merging - only merge if very close
+                if gap <= max_horizontal_gap and gap >= -5:  # Reduced overlap tolerance
+                    # Additional check: don't merge if both elements are short (likely UI elements)
+                    if len(element['text']) <= 8 and len(other_element['text']) <= 8:
+                        # For short elements, require even smaller gap
+                        if gap <= 15:  # Very small gap for short elements
+                            # Check if either element is a UI element that shouldn't be merged
+                            element_lower = element['text'].lower().strip()
+                            other_lower = other_element['text'].lower().strip()
+                            
+                            if (element_lower in ui_element_words or other_lower in ui_element_words):
+                                # Don't merge UI elements like tabs
+                                print(f"[OCR Merge] Skipping merge of UI elements: '{element['text']}' and '{other_element['text']}'")
+                                continue
+                            
+                            group.append(other_element)
+                            used_indices.add(j)
+                    else:
+                        # For longer elements, use normal gap
+                        group.append(other_element)
+                        used_indices.add(j)
         
         # Sort group by x position
         group.sort(key=lambda x: x['x'])
@@ -260,6 +316,8 @@ CRITICAL INSTRUCTIONS:
 4. Pay attention to instance numbers if there are multiple elements with the same text.
 5. For keyboard actions (Enter, Tab, Escape, etc.), use the "press" action, NOT "click_text".
 6. If you see a button or element that looks like a keyboard key, use "press" action instead of clicking.
+7. NEVER click on UI control elements like "STOP", "START", "PAUSE", "CANCEL", etc. - these are interface controls, not content.
+8. Focus on the main application content, not the browser/interface controls around it.
 
 IMPORTANT: Look carefully at the current screen image. If you see evidence that your previous actions were incorrect, made a mistake, or didn't achieve the intended result, you MUST correct course immediately. Don't continue with a flawed approach - adapt and fix the situation.
 
@@ -290,6 +348,7 @@ Examples:
 - To press Tab key, use: {{"action": "press", "keys": ["tab"]}}
 - To click on a button with text "Submit", use: {{"action": "click_text", "target": "Submit"}}
 - To click on a menu item "File", use: {{"action": "click_text", "target": "File"}}
+- DO NOT click on UI controls like "STOP", "CANCEL", "CLOSE" - these are interface elements, not content
 
 Look at the current screen image and determine what action to take next to achieve your goal. If you need to correct a previous mistake, do so immediately. Pay special attention to the cursor position when deciding mouse movements.
 
