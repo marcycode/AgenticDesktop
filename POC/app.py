@@ -109,7 +109,10 @@ def process_command():
             'command': user_input,
             'status': 'processing',
             'steps': None,
-            'timestamp': time.time()
+            'timestamp': time.time(),
+            'completed_steps': 0,
+            'step_statuses': [],
+            'execution_mode': None
         }
         
         # process command in background
@@ -127,6 +130,9 @@ def process_command():
                     command_history[command_id]['steps'] = steps
                     command_history[command_id]['status'] = 'ready'
                     command_history[command_id]['undone'] = False
+                    # Initialize step statuses
+                    if isinstance(steps, list):
+                        command_history[command_id]['step_statuses'] = ['pending'] * len(steps)
                 
                 # emit update to client
                 socketio.emit('command_update', command_history[command_id])
@@ -140,46 +146,6 @@ def process_command():
         
         return jsonify({'command_id': command_id, 'status': 'processing'})
     
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/undo_command', methods=['POST'])
-def undo_command():
-    try:
-        old_command_id = request.json.get('command_id')
-        
-        if old_command_id in command_history:
-            old_command_data = command_history[old_command_id]
-            command_id = str(uuid.uuid4())
-
-            # store initial command
-            command_history[command_id] = {
-                'id': command_id,
-                'command': old_command_data['command'] + " (undo)",
-                'status': 'processing',
-                'steps': None,
-                'timestamp': time.time()
-            }
-
-            def process_in_background():
-                # process command in background
-                try:
-                    opposite_steps = get_opposite_command_steps(old_command_data['steps'])
-                    command_history[command_id]['steps'] = opposite_steps
-                    command_history[command_id]['status'] = 'ready'
-                    command_history[command_id]['undone'] = False
-                        
-                    # emit update to client
-                    socketio.emit('command_update', command_history[command_id])
-                except Exception as e:
-                    command_history[command_id]['status'] = 'error'
-                    command_history[command_id]['error'] = str(e)
-                    socketio.emit('command_update', command_history[command_id])
-                
-            thread = threading.Thread(target=process_in_background)
-            thread.start()
-            
-            return jsonify({'command_id': command_id, 'status': 'processing'})    
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -200,9 +166,17 @@ def execute_command():
         def execute_in_background():
             try:
                 command_history[command_id]['status'] = 'executing'
+                command_history[command_id]['execution_mode'] = 'all_at_once'
+                command_history[command_id]['completed_steps'] = 0
                 socketio.emit('command_update', command_history[command_id])
                 
+                # Execute all steps at once
                 execute_steps(command_data['steps'])
+                
+                # Mark all steps as completed
+                if command_data['steps']:
+                    command_history[command_id]['completed_steps'] = len(command_data['steps'])
+                    command_history[command_id]['step_statuses'] = ['completed'] * len(command_data['steps'])
                 
                 command_history[command_id]['status'] = 'completed'
                 socketio.emit('command_update', command_history[command_id])
@@ -216,6 +190,183 @@ def execute_command():
         
         return jsonify({'status': 'executing'})
     
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/execute_step_by_step', methods=['POST'])
+def execute_step_by_step():
+    try:
+        data = request.json
+        command_id = data.get('command_id')
+        
+        if command_id not in command_history:
+            return jsonify({'error': 'Command not found'}), 404
+        
+        command_data = command_history[command_id]
+        if command_data['status'] != 'ready':
+            return jsonify({'error': 'Command not ready for execution'}), 400
+        
+        # Initialize step-by-step execution
+        command_history[command_id]['status'] = 'executing'
+        command_history[command_id]['execution_mode'] = 'step_by_step'
+        command_history[command_id]['completed_steps'] = 0
+        command_history[command_id]['current_step'] = 0
+        
+        if command_data['steps']:
+            command_history[command_id]['step_statuses'] = ['pending'] * len(command_data['steps'])
+            if len(command_data['steps']) > 0:
+                command_history[command_id]['step_statuses'][0] = 'active'
+        
+        socketio.emit('command_update', command_history[command_id])
+        
+        return jsonify({'status': 'ready_for_step_by_step'})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/execute_next_step', methods=['POST'])
+def execute_next_step():
+    try:
+        data = request.json
+        command_id = data.get('command_id')
+        step_index = data.get('step_index', 0)
+        
+        if command_id not in command_history:
+            return jsonify({'error': 'Command not found'}), 404
+        
+        command_data = command_history[command_id]
+        if command_data['status'] != 'executing' or command_data['execution_mode'] != 'step_by_step':
+            return jsonify({'error': 'Command not in step-by-step mode'}), 400
+        
+        if not command_data['steps'] or step_index >= len(command_data['steps']):
+            return jsonify({'error': 'Invalid step index'}), 400
+        
+        # Execute single step in background
+        def execute_single_step():
+            try:
+                current_step = command_data['steps'][step_index]
+                
+                # Mark current step as active
+                command_history[command_id]['step_statuses'][step_index] = 'active'
+                socketio.emit('command_update', command_history[command_id])
+                
+                # Execute the single step
+                execute_steps([current_step])
+                
+                # Mark step as completed
+                command_history[command_id]['step_statuses'][step_index] = 'completed'
+                command_history[command_id]['completed_steps'] = step_index + 1
+                
+                # Check if this was the last step
+                if step_index + 1 >= len(command_data['steps']):
+                    command_history[command_id]['status'] = 'completed'
+                else:
+                    # Mark next step as active
+                    command_history[command_id]['step_statuses'][step_index + 1] = 'active'
+                
+                socketio.emit('command_update', command_history[command_id])
+                
+            except Exception as e:
+                command_history[command_id]['step_statuses'][step_index] = 'error'
+                command_history[command_id]['status'] = 'error'
+                command_history[command_id]['error'] = f"Error in step {step_index + 1}: {str(e)}"
+                command_history[command_id]['error_step'] = step_index
+                socketio.emit('command_update', command_history[command_id])
+        
+        thread = threading.Thread(target=execute_single_step)
+        thread.start()
+        
+        return jsonify({'success': True, 'step_index': step_index})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pause_execution', methods=['POST'])
+def pause_execution():
+    try:
+        data = request.json
+        command_id = data.get('command_id')
+        
+        if command_id not in command_history:
+            return jsonify({'error': 'Command not found'}), 404
+        
+        command_data = command_history[command_id]
+        if command_data['status'] != 'executing':
+            return jsonify({'error': 'Command not executing'}), 400
+        
+        command_history[command_id]['status'] = 'paused'
+        socketio.emit('command_update', command_history[command_id])
+        
+        return jsonify({'status': 'paused'})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/resume_execution', methods=['POST'])
+def resume_execution():
+    try:
+        data = request.json
+        command_id = data.get('command_id')
+        
+        if command_id not in command_history:
+            return jsonify({'error': 'Command not found'}), 404
+        
+        command_data = command_history[command_id]
+        if command_data['status'] != 'paused':
+            return jsonify({'error': 'Command not paused'}), 400
+        
+        command_history[command_id]['status'] = 'executing'
+        socketio.emit('command_update', command_history[command_id])
+        
+        return jsonify({'status': 'resumed'})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/undo_command', methods=['POST'])
+def undo_command():
+    try:
+        old_command_id = request.json.get('command_id')
+        
+        if old_command_id in command_history:
+            old_command_data = command_history[old_command_id]
+            command_id = str(uuid.uuid4())
+
+            # store initial command
+            command_history[command_id] = {
+                'id': command_id,
+                'command': old_command_data['command'] + " (undo)",
+                'status': 'processing',
+                'steps': None,
+                'timestamp': time.time(),
+                'completed_steps': 0,
+                'step_statuses': [],
+                'execution_mode': None
+            }
+
+            def process_in_background():
+                # process command in background
+                try:
+                    opposite_steps = get_opposite_command_steps(old_command_data['steps'])
+                    command_history[command_id]['steps'] = opposite_steps
+                    command_history[command_id]['status'] = 'ready'
+                    command_history[command_id]['undone'] = False
+                    
+                    # Initialize step statuses for undo
+                    if isinstance(opposite_steps, list):
+                        command_history[command_id]['step_statuses'] = ['pending'] * len(opposite_steps)
+                        
+                    # emit update to client
+                    socketio.emit('command_update', command_history[command_id])
+                except Exception as e:
+                    command_history[command_id]['status'] = 'error'
+                    command_history[command_id]['error'] = str(e)
+                    socketio.emit('command_update', command_history[command_id])
+                
+            thread = threading.Thread(target=process_in_background)
+            thread.start()
+            
+            return jsonify({'command_id': command_id, 'status': 'processing'})    
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -246,4 +397,4 @@ def get_system_capabilities():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000) 
+    socketio.run(app, debug=True, host='0.0.0.0', port=5001) 
