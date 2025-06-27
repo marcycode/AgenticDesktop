@@ -10,6 +10,7 @@ import base64
 import json
 from system_info import get_system_info
 from config import AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT
+import openai
 
 # Check for Google Cloud Vision API key
 GOOGLE_CREDENTIALS = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
@@ -332,6 +333,56 @@ def parse_llm_response(response):
         print(f"[Agent] Failed to parse LLM response: {e}")
     return {"action": "ask", "message": "Could not parse LLM response."}
 
+def select_relevant_ocr_elements(goal, ocr_annotations, image_b64):
+    """
+    Use an LLM to select and rank the most relevant OCR elements for the given goal.
+    Returns a ranked list of OCR elements (subset of ocr_annotations, possibly reordered).
+    """
+    selector_prompt = f'''
+You are an expert UI assistant. Your job is to help another agent achieve the following goal on a computer screen:
+GOAL: "{goal}"
+
+You are given a list of all detected text elements on the screen, each with its coordinates and bounding box. You are also given a screenshot image of the screen.
+
+Your task:
+- Carefully examine the screenshot and the list of OCR elements.
+- Select the most important and relevant text elements for achieving the goal.
+- Rank them in order of importance (most relevant first).
+- For each, return the exact text, its coordinates (x, y), and its bounding box.
+- Only include elements that are likely to be actionable or important for the goal.
+- If there are multiple instances of the same text, include each instance separately with its coordinates.
+
+Respond ONLY with a JSON array of objects, each with keys: "text", "x", "y", "bbox", and (if present) "index" and "total_instances". Do not include any explanation or extra text.
+
+Here is the list of OCR elements:
+{json.dumps(ocr_annotations, indent=2)}
+'''
+    response = openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "You are a UI element selector for desktop automation."},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": selector_prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}"}}
+                ]
+            }
+        ],
+        temperature=0.2,
+        max_tokens=512
+    )
+    content = response.choices[0].message.content.strip()
+    try:
+        # Parse the first JSON array in the response
+        start = content.find('[')
+        end = content.rfind(']') + 1
+        if start != -1 and end != -1:
+            return json.loads(content[start:end])
+    except Exception as e:
+        print(f"[Selector LLM] Failed to parse response: {e}")
+    return []
+
 def agent_autorun(goal, max_steps=20):
     agent_state['goal'] = goal
     agent_state['actions_taken'] = []
@@ -341,13 +392,11 @@ def agent_autorun(goal, max_steps=20):
     agent_state['stop_requested'] = False
     print(f"[Agent] Starting autorun perception-action loop for goal: {goal}")
     for step in range(max_steps):
-        # Check if stop was requested
         if agent_state['stop_requested']:
             agent_state['status'] = 'stopped'
             agent_state['message'] = 'Agent loop stopped by user.'
             print("[Agent] Agent loop stopped by user.")
             break
-            
         agent_state['step'] = step
         # 1. Capture the screen
         img_bytes, img_b64 = capture_screen()
@@ -356,7 +405,13 @@ def agent_autorun(goal, max_steps=20):
         screen_text, ocr_annotations = ocr_screen_with_coordinates(img_bytes)
         agent_state['screen_ocr'] = screen_text
         agent_state['ocr_annotations'] = ocr_annotations
-        
+        # 2.5. Middleman LLM: select and rank relevant OCR elements
+        ranked_ocr = select_relevant_ocr_elements(goal, ocr_annotations, img_b64)
+        if ranked_ocr:
+            agent_state['ranked_ocr'] = ranked_ocr
+            ocr_for_action = ranked_ocr
+        else:
+            ocr_for_action = ocr_annotations
         # Debug: Show OCR results
         print(f"[Agent] OCR found {len(ocr_annotations)} clickable elements")
         if ocr_annotations:
@@ -364,9 +419,8 @@ def agent_autorun(goal, max_steps=20):
             for i, ann in enumerate(ocr_annotations[:5]):
                 merged_info = f" (merged from {ann['merged_from']} words)" if 'merged_from' in ann else ""
                 print(f"  {i+1}. '{ann['text']}' at ({ann['x']}, {ann['y']}){merged_info}")
-        
-        # 3. Build LLM prompt
-        prompt = build_llm_prompt(goal, agent_state['actions_taken'], agent_state['ocr_annotations'])
+        # 3. Build LLM prompt (use ranked OCR)
+        prompt = build_llm_prompt(goal, agent_state['actions_taken'], ocr_for_action)
         agent_state['llm_prompt'] = prompt
         # 4. Call LLM
         llm_response = call_llm(prompt, img_b64)
@@ -387,8 +441,8 @@ def agent_autorun(goal, max_steps=20):
             print(f"[Agent] {agent_state['message']}")
             break
         else:
-            execute_steps([action], agent_state['ocr_annotations'])
-        time.sleep(1)  # Small delay between steps
+            execute_steps([action], ocr_for_action)
+        time.sleep(1)
     else:
         agent_state['status'] = 'max_steps'
         agent_state['message'] = 'Reached maximum number of steps.'
