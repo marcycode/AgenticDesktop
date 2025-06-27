@@ -20,7 +20,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 900px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -32,7 +32,7 @@
 
         .header h1 {
             color: white;
-            font-size: 3rem;
+            font-size: 2.5rem;
             font-weight: 700;
             margin-bottom: 10px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
@@ -40,7 +40,7 @@
 
         .header p {
             color: rgba(255,255,255,0.9);
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 300;
         }
 
@@ -48,7 +48,7 @@
             background: white;
             border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            padding: 40px;
+            padding: 30px;
             margin-bottom: 30px;
         }
 
@@ -153,214 +153,80 @@
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            margin-left: 10px;
         }
 
-        .status-processing {
-            background: #ffeaa7;
-            color: #fdcb6e;
+        .status-running { background: #ffeaa7; color: #fdcb6e; }
+        .status-done { background: #d4edda; color: #155724; }
+        .status-ask { background: #f8d7da; color: #721c24; }
+        .status-idle { background: #e2e3e5; color: #383d41; }
+        .status-max_steps { background: #f8d7da; color: #721c24; }
+
+        .section-title {
+            font-weight: 600;
+            color: #495057;
+            font-size: 1.1rem;
+            margin-top: 25px;
+            margin-bottom: 10px;
         }
 
-        .status-ready {
-            background: #d1ecf1;
-            color: #0c5460;
+        .screenshot {
+            width: 100%;
+            max-width: 700px;
+            border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.08);
+            margin-bottom: 10px;
         }
 
-        .status-executing {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .status-completed {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status-error {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .steps-container {
-            margin-top: 15px;
-        }
-
-        .step-item {
-            background: white;
-            padding: 12px 15px;
-            margin: 8px 0;
+        .ocr-box {
+            background: #f8f9fa;
             border-radius: 8px;
-            border: 1px solid #e9ecef;
+            padding: 12px 16px;
             font-family: 'Courier New', monospace;
             font-size: 14px;
-        }
-
-        .desktop-panel {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            padding: 30px;
-            margin-bottom: 30px;
-        }
-
-        .desktop-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #f1f3f4;
-        }
-
-        .desktop-header h3 {
-            color: #2c3e50;
-            font-size: 1.5rem;
-        }
-
-        .desktop-controls {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .desktop-viewer {
-            position: relative;
-            min-height: 400px;
-            background: #f8f9fa;
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .desktop-placeholder {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        }
-
-        .placeholder-content {
-            text-align: center;
-            color: #6c757d;
-        }
-
-        .placeholder-icon {
-            font-size: 4rem;
-            margin-bottom: 20px;
-        }
-
-        .placeholder-content h4 {
+            color: #495057;
             margin-bottom: 10px;
-            color: #495057;
+            white-space: pre-wrap;
         }
 
-        #desktopImage {
-            display: none;
-        }
-
-        #desktopImage.active {
-            display: block;
-        }
-
-        .history-panel {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            padding: 30px;
-        }
-
-        .history-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #f1f3f4;
-        }
-
-        .history-header h3 {
-            color: #2c3e50;
-            font-size: 1.5rem;
-        }
-
-        .loading {
-            display: none;
-            align-items: center;
-            gap: 10px;
-            color: #667eea;
-            font-weight: 500;
-        }
-
-        .loading.show {
-            display: flex;
-        }
-
-        .spinner {
-            width: 20px;
-            height: 20px;
-            border: 2px solid #f3f3f3;
-            border-top: 2px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .examples {
-            margin-top: 20px;
-        }
-
-        .examples h4 {
-            margin-bottom: 15px;
-            color: #495057;
-        }
-
-        .example-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .example-tag {
-            background: #e9ecef;
-            padding: 8px 15px;
-            border-radius: 20px;
+        .actions-list {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-family: 'Courier New', monospace;
             font-size: 14px;
-            cursor: pointer;
-            transition: all 0.3s ease;
+            color: #495057;
+            margin-bottom: 10px;
+            max-height: 200px;
+            overflow-y: auto;
         }
 
-        .example-tag:hover {
-            background: #667eea;
-            color: white;
+        .llm-box {
+            background: #f1f3f4;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #333;
+            margin-bottom: 10px;
+            white-space: pre-wrap;
+        }
+
+        .agent-message {
+            background: #fff3cd;
+            color: #856404;
+            border-radius: 8px;
+            padding: 10px 16px;
+            margin-bottom: 10px;
+            font-size: 15px;
         }
 
         @media (max-width: 768px) {
-            .container {
-                padding: 10px;
-            }
-
-            .header h1 {
-                font-size: 2rem;
-            }
-
-            .main-panel {
-                padding: 20px;
-            }
-
-            .input-container {
-                flex-direction: column;
-            }
-
-            .btn {
-                padding: 12px 20px;
-            }
+            .container { padding: 10px; }
+            .main-panel { padding: 12px; }
+            .input-container { flex-direction: column; }
+            .btn { width: 100%; }
+            .screenshot { max-width: 100%; }
         }
     </style>
 </head>
@@ -368,347 +234,98 @@
     <div class="container">
         <div class="header">
             <h1>🤖 AgenticDesktop</h1>
-            <p>AI-Powered Desktop Automation</p>
+            <p>Goal-driven, vision-based desktop automation (full transparency)</p>
         </div>
-
         <div class="main-panel">
             <div class="input-section">
                 <div class="input-container">
-                    <input type="text" id="commandInput" class="command-input" 
-                           placeholder="Tell me what you want to do... (e.g., 'open Chrome and search for restaurants')" 
-                           onkeypress="handleKeyPress(event)">
-                    <button class="btn btn-primary" onclick="processCommand()">
-                        <span id="processText">Process</span>
-                    </button>
-                    <button class="btn btn-secondary" onclick="getVoiceCommand()">
-                        🎤 Voice
-                    </button>
-                    <button class="btn btn-secondary" id="desktopToggle" onclick="toggleDesktopStream()">
-                        📺 Desktop
-                    </button>
-                </div>
-                
-                <div class="loading" id="loading">
-                    <div class="spinner"></div>
-                    <span>Processing your command...</span>
-                </div>
-
-                <div class="examples">
-                    <h4>Try these examples:</h4>
-                    <div class="example-tags">
-                        <span class="example-tag" onclick="setExample('open Chrome and search for weather')">Search weather</span>
-                        <span class="example-tag" onclick="setExample('copy all files from Downloads to Desktop')">Copy files</span>
-                        <span class="example-tag" onclick="setExample('open calculator')">Open calculator</span>
-                        <span class="example-tag" onclick="setExample('find all PDF files in Documents')">Find PDFs</span>
-                        <span class="example-tag" onclick="setExample('move recent downloads to Pictures folder')">Move files</span>
-                    </div>
+                    <input type="text" id="commandInput" class="command-input" placeholder="Describe your goal (e.g., 'open calculator and type 123')">
+                    <button class="btn btn-primary" onclick="startAgenticLoop()" id="startBtn">Start</button>
                 </div>
             </div>
-
-            <div id="currentCommand" class="command-container" style="display: none;"></div>
-        </div>
-
-        <!-- Desktop View Panel -->
-        <div class="desktop-panel" id="desktopPanel" style="display: none;">
-            <div class="desktop-header">
-                <h3>🖥️ Desktop View</h3>
-                <div class="desktop-controls">
-                    <span id="desktopStatus" class="status-badge status-ready">Ready</span>
-                    <button class="btn btn-secondary" onclick="toggleDesktopStream()">Stop</button>
-                </div>
-            </div>
-            <div class="desktop-viewer">
-                <img id="desktopImage" src="" alt="Desktop Stream" style="width: 100%; height: auto; border-radius: 8px;">
-                <div id="desktopPlaceholder" class="desktop-placeholder">
-                    <div class="placeholder-content">
-                        <div class="placeholder-icon">🖥️</div>
-                        <h4>Desktop Stream</h4>
-                        <p>Click "Desktop" to start viewing your desktop</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="history-panel">
-            <div class="history-header">
-                <h3>Command History</h3>
-                <button class="btn btn-secondary" onclick="loadHistory()">Refresh</button>
-            </div>
-            <div id="historyContainer">
-                <p style="text-align: center; color: #6c757d; font-style: italic;">No commands yet. Start by entering a command above!</p>
+            <div id="agentStatusBox" style="margin-bottom: 20px;"></div>
+            <div id="agentTransparency" style="display: none;">
+                <div class="section-title">🖥️ Current Screen</div>
+                <img id="screenshotImg" class="screenshot" src="" alt="Screenshot">
+                <div class="section-title">🔍 OCR (Screen Text)</div>
+                <div id="ocrBox" class="ocr-box"></div>
+                <div class="section-title">📝 Actions Taken</div>
+                <div id="actionsList" class="actions-list"></div>
+                <div class="section-title">🤖 LLM Prompt</div>
+                <div id="llmPrompt" class="llm-box"></div>
+                <div class="section-title">🤖 LLM Response</div>
+                <div id="llmResponse" class="llm-box"></div>
+                <div id="agentMessage" class="agent-message" style="display: none;"></div>
             </div>
         </div>
     </div>
-
     <script>
-        const socket = io();
-        let currentCommandId = null;
-        let desktopStreaming = false;
-
-        // Socket event listeners
-        socket.on('command_update', function(data) {
-            updateCommandDisplay(data);
-            loadHistory(); // Refresh history when command updates
-        });
-
-        // Desktop streaming event listeners
-        socket.on('desktop_frame', function(data) {
-            const desktopImage = document.getElementById('desktopImage');
-            const placeholder = document.getElementById('desktopPlaceholder');
-            
-            if (data.image) {
-                desktopImage.src = 'data:image/jpeg;base64,' + data.image;
-                desktopImage.classList.add('active');
-                placeholder.style.display = 'none';
-            }
-        });
-
-        socket.on('desktop_stream_status', function(data) {
-            const statusElement = document.getElementById('desktopStatus');
-            const toggleButton = document.getElementById('desktopToggle');
-            
-            if (data.status === 'started') {
-                statusElement.textContent = 'Streaming';
-                statusElement.className = 'status-badge status-executing';
-                toggleButton.innerHTML = '⏹️ Stop Desktop';
-                desktopStreaming = true;
-            } else if (data.status === 'stopped') {
-                statusElement.textContent = 'Stopped';
-                statusElement.className = 'status-badge status-ready';
-                toggleButton.innerHTML = '📺 Desktop';
-                desktopStreaming = false;
-                
-                // Hide desktop image and show placeholder
-                const desktopImage = document.getElementById('desktopImage');
-                const placeholder = document.getElementById('desktopPlaceholder');
-                desktopImage.classList.remove('active');
-                placeholder.style.display = 'flex';
-            }
-        });
-
-        function handleKeyPress(event) {
-            if (event.key === 'Enter') {
-                processCommand();
-            }
-        }
-
-        function setExample(text) {
-            document.getElementById('commandInput').value = text;
-        }
-
-        function toggleDesktopStream() {
-            const desktopPanel = document.getElementById('desktopPanel');
-            
-            // Show the desktop panel if hidden
-            if (desktopPanel.style.display === 'none') {
-                desktopPanel.style.display = 'block';
-            }
-            
-            if (!desktopStreaming) {
-                // Start streaming
-                socket.emit('start_desktop_stream');
-            } else {
-                // Stop streaming
-                socket.emit('stop_desktop_stream');
-            }
-        }
-
-        async function processCommand() {
+        let pollingInterval = null;
+        function startAgenticLoop() {
             const commandInput = document.getElementById('commandInput');
-            const command = commandInput.value.trim();
-            
-            if (!command) {
-                alert('Please enter a command');
+            const goal = commandInput.value.trim();
+            if (!goal) {
+                alert('Please enter a goal.');
                 return;
             }
-
-            // Show loading
-            document.getElementById('loading').classList.add('show');
-            document.getElementById('processText').textContent = 'Processing...';
-
-            try {
-                const response = await fetch('/api/process_command', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ command: command })
-                });
-
-                const data = await response.json();
-                currentCommandId = data.command_id;
-                
-                // Clear input
-                commandInput.value = '';
-                
-            } catch (error) {
-                console.error('Error processing command:', error);
-                alert('Error processing command: ' + error.message);
-            } finally {
-                document.getElementById('loading').classList.remove('show');
-                document.getElementById('processText').textContent = 'Process';
-            }
-        }
-
-        async function executeCommand(commandId) {
-            try {
-                const response = await fetch('/api/execute_command', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ command_id: commandId })
-                });
-
-                const data = await response.json();
-                console.log('Execution started:', data);
-                
-            } catch (error) {
-                console.error('Error executing command:', error);
-                alert('Error executing command: ' + error.message);
-            }
-        }
-
-        async function undoCommand(commandId) {
-            try {
-                const response = await fetch('/api/undo_command', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ command_id: commandId })
-                });
-
-                const data = await response.json();
-                console.log('Undo successful:', data);
-                
-            } catch (error) {
-                console.error('Error undoing command:', error);
-                alert('Error undoing command: ' + error.message);
-            }
-        }
-
-        async function getVoiceCommand() {
-            const button = event.target;
-            const originalText = button.innerHTML;
-            button.innerHTML = '🎤 Listening...';
-            button.disabled = true;
-
-            try {
-                const response = await fetch('/api/voice_command', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                });
-
-                const data = await response.json();
-                if (data.command) {
-                    document.getElementById('commandInput').value = data.command;
+            document.getElementById('startBtn').disabled = true;
+            fetch('/api/process_command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command: goal })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'agentic_loop_started') {
+                    document.getElementById('agentTransparency').style.display = 'block';
+                    pollAgentState();
+                    pollingInterval = setInterval(pollAgentState, 2000);
                 } else {
-                    alert('Could not understand voice command');
+                    alert('Failed to start agentic loop: ' + (data.error || 'Unknown error'));
+                    document.getElementById('startBtn').disabled = false;
                 }
-                
-            } catch (error) {
-                console.error('Error getting voice command:', error);
-                alert('Error with voice command: ' + error.message);
-            } finally {
-                button.innerHTML = originalText;
-                button.disabled = false;
-            }
+            })
+            .catch(err => {
+                alert('Error: ' + err);
+                document.getElementById('startBtn').disabled = false;
+            });
         }
-
-        function updateCommandDisplay(commandData) {
-            const container = document.getElementById('currentCommand');
-            container.style.display = 'block';
-            
-            const statusClass = `status-${commandData.status}`;
-            const statusText = commandData.status.charAt(0).toUpperCase() + commandData.status.slice(1);
-            
-            let stepsHtml = '';
-            if (commandData.steps && Array.isArray(commandData.steps)) {
-                stepsHtml = `
-                    <div class="steps-container">
-                        <h5 style="margin-bottom: 10px; color: #495057;">Planned Steps:</h5>
-                        ${commandData.steps.map(step => `
-                            <div class="step-item">
-                                <strong>${step.action}:</strong> ${JSON.stringify(step, null, 2).slice(1, -1)}
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-            }
-
-            let executeButton = '';
-            if (commandData.status === 'ready') {
-                executeButton = `<button class="btn btn-success" onclick="executeCommand('${commandData.id}')">Execute</button>`;
-            }
-
-            container.innerHTML = `
-                <div class="command-card">
-                    <div class="command-header">
-                        <div class="command-text">${commandData.command}</div>
-                        <div class="status-badge ${statusClass}">${statusText}</div>
-                    </div>
-                    ${stepsHtml}
-                    ${commandData.error ? `<div style="color: #dc3545; margin-top: 10px;"><strong>Error:</strong> ${commandData.error}</div>` : ''}
-                    <div style="margin-top: 15px; text-align: right;">
-                        ${executeButton}
-                    </div>
-                </div>
-            `;
-        }
-
-        async function loadHistory() {
-            try {
-                const response = await fetch('/api/history');
-                const history = await response.json();
-                
-                const container = document.getElementById('historyContainer');
-                
-                if (history.length === 0) {
-                    container.innerHTML = '<p style="text-align: center; color: #6c757d; font-style: italic;">No commands yet. Start by entering a command above!</p>';
-                    return;
+        function pollAgentState() {
+            fetch('/api/agent/state')
+            .then(res => res.json())
+            .then(state => {
+                // Status badge
+                const statusBox = document.getElementById('agentStatusBox');
+                statusBox.innerHTML = `<b>Status:</b> <span class="status-badge status-${state.status}">${state.status.toUpperCase()}</span>`;
+                // Screenshot
+                const screenshotImg = document.getElementById('screenshotImg');
+                if (state.screen_b64) {
+                    screenshotImg.src = 'data:image/png;base64,' + state.screen_b64;
+                } else {
+                    screenshotImg.src = '';
                 }
-
-                container.innerHTML = history.map(command => {
-                    const statusClass = `status-${command.status}`;
-                    const statusText = command.status.charAt(0).toUpperCase() + command.status.slice(1);
-                    const date = new Date(command.timestamp * 1000).toLocaleString();
-                    let stepsHtml = '';
-                    if (command.steps && Array.isArray(command.steps)) {
-                        stepsHtml = `
-                            <div class="steps-container">
-                                ${command.steps.map(step => `
-                                    <div class="step-item">
-                                        <strong>${step.action}:</strong> ${JSON.stringify(step, null, 2).slice(1, -1)}
-                                    </div>
-                                `).join('')}
-                            </div>
-                        `;
-                    }
-
-                    return `
-                        <div class="command-card">
-                            <div class="command-header">
-                                <div class="command-text">${command.command}</div>
-                                <div class="status-badge ${statusClass}">${statusText}</div>
-                            </div>
-                            <div style="font-size: 12px; color: #6c757d; margin-bottom: 10px;">${date}</div>
-                            ${stepsHtml}
-                            ${command.error ? `<div style="color: #dc3545; margin-top: 10px;"><strong>Error:</strong> ${command.error}</div>` : ''}
-                            ${command.status === 'completed' ? `<button class="btn btn-warning" onclick="undoCommand('${command.id}')">Undo</button>` : ''}
-                        </div>
-                    `;
-                }).join('');
-                
-            } catch (error) {
-                console.error('Error loading history:', error);
-            }
+                // OCR
+                document.getElementById('ocrBox').textContent = state.screen_ocr || '';
+                // Actions
+                document.getElementById('actionsList').textContent = JSON.stringify(state.actions_taken, null, 2);
+                // LLM prompt/response
+                document.getElementById('llmPrompt').textContent = state.llm_prompt || '';
+                document.getElementById('llmResponse').textContent = state.llm_response || '';
+                // Agent message
+                const agentMsg = document.getElementById('agentMessage');
+                if (state.message) {
+                    agentMsg.textContent = state.message;
+                    agentMsg.style.display = 'block';
+                } else {
+                    agentMsg.style.display = 'none';
+                }
+                // Stop polling if done or ask or max_steps
+                if (["done", "ask", "max_steps"].includes(state.status)) {
+                    clearInterval(pollingInterval);
+                    document.getElementById('startBtn').disabled = false;
+                }
+            });
         }
-
-        // Load history on page load
-        window.addEventListener('load', loadHistory);
     </script>
 </body>
 </html> 

@@ -11,12 +11,13 @@ import base64
 import io
 import mss
 from PIL import Image
+from agent_loop import agent_autorun, get_agent_state, agent_state
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here' # left blank is for now
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Store command history and status
+# Store command history and status (legacy, not used in new agentic mode)
 command_history = {}
 
 # Desktop streaming variables
@@ -98,134 +99,25 @@ def index():
 
 @app.route('/api/process_command', methods=['POST'])
 def process_command():
+    # This endpoint now starts the agentic autorun loop with the given goal
     try:
         data = request.json
         user_input = data.get('command', '')
-        command_id = str(uuid.uuid4())
-        
-        # store initial command
-        command_history[command_id] = {
-            'id': command_id,
-            'command': user_input,
-            'status': 'processing',
-            'steps': None,
-            'timestamp': time.time()
-        }
-        
-        # process command in background
-        def process_in_background():
-            try:
-                steps = get_command_steps(user_input)
-                
-                # Check if the response contains an error
-                if isinstance(steps, dict) and steps.get('error'):
-                    command_history[command_id]['status'] = 'error'
-                    command_history[command_id]['error'] = steps.get('message', 'Unknown error')
-                    command_history[command_id]['steps'] = None
-                    command_history[command_id]['undone'] = False
-                else:
-                    command_history[command_id]['steps'] = steps
-                    command_history[command_id]['status'] = 'ready'
-                    command_history[command_id]['undone'] = False
-                
-                # emit update to client
-                socketio.emit('command_update', command_history[command_id])
-            except Exception as e:
-                command_history[command_id]['status'] = 'error'
-                command_history[command_id]['error'] = str(e)
-                socketio.emit('command_update', command_history[command_id])
-        
-        thread = threading.Thread(target=process_in_background)
+        # Start the agent loop in a background thread
+        def run_agent():
+            agent_autorun(user_input)
+        thread = threading.Thread(target=run_agent)
         thread.start()
-        
-        return jsonify({'command_id': command_id, 'status': 'processing'})
-    
+        return jsonify({'status': 'agentic_loop_started'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/undo_command', methods=['POST'])
-def undo_command():
-    try:
-        old_command_id = request.json.get('command_id')
-        
-        if old_command_id in command_history:
-            old_command_data = command_history[old_command_id]
-            command_id = str(uuid.uuid4())
+@app.route('/api/agent/state', methods=['GET'])
+def get_agentic_state():
+    # Return the current agent state for the web UI
+    return jsonify(get_agent_state())
 
-            # store initial command
-            command_history[command_id] = {
-                'id': command_id,
-                'command': old_command_data['command'] + " (undo)",
-                'status': 'processing',
-                'steps': None,
-                'timestamp': time.time()
-            }
-
-            def process_in_background():
-                # process command in background
-                try:
-                    opposite_steps = get_opposite_command_steps(old_command_data['steps'])
-                    command_history[command_id]['steps'] = opposite_steps
-                    command_history[command_id]['status'] = 'ready'
-                    command_history[command_id]['undone'] = False
-                        
-                    # emit update to client
-                    socketio.emit('command_update', command_history[command_id])
-                except Exception as e:
-                    command_history[command_id]['status'] = 'error'
-                    command_history[command_id]['error'] = str(e)
-                    socketio.emit('command_update', command_history[command_id])
-                
-            thread = threading.Thread(target=process_in_background)
-            thread.start()
-            
-            return jsonify({'command_id': command_id, 'status': 'processing'})    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/execute_command', methods=['POST'])
-def execute_command():
-    try:
-        data = request.json
-        command_id = data.get('command_id')
-        
-        if command_id not in command_history:
-            return jsonify({'error': 'Command not found'}), 404
-        
-        command_data = command_history[command_id]
-        if command_data['status'] != 'ready':
-            return jsonify({'error': 'Command not ready for execution'}), 400
-        
-        # execute in background
-        def execute_in_background():
-            try:
-                command_history[command_id]['status'] = 'executing'
-                socketio.emit('command_update', command_history[command_id])
-                
-                execute_steps(command_data['steps'])
-                
-                command_history[command_id]['status'] = 'completed'
-                socketio.emit('command_update', command_history[command_id])
-            except Exception as e:
-                command_history[command_id]['status'] = 'error'
-                command_history[command_id]['error'] = str(e)
-                socketio.emit('command_update', command_history[command_id])
-        
-        thread = threading.Thread(target=execute_in_background)
-        thread.start()
-        
-        return jsonify({'status': 'executing'})
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/history')
-def get_history():
-    # return last 20 commands
-    history = list(command_history.values())
-    history.sort(key=lambda x: x['timestamp'], reverse=True)
-    return jsonify(history[:20])
-
+# (Optional) Legacy endpoints can be removed or left for compatibility
 @app.route('/api/voice_command', methods=['POST'])
 def get_voice():
     try:
@@ -246,4 +138,4 @@ def get_system_capabilities():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000) 
+    socketio.run(app, debug=True, host='0.0.0.0', port=5001) 
