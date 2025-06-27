@@ -7,7 +7,7 @@ import time
 # Action format examples:
 # {"action": "type", "text": "hello world"}
 # {"action": "press", "keys": ["command", "t"]}  # For Cmd+T (new tab on macOS)
-# {"action": "mouse", ...}
+# {"action": "click_text", "target": "text to click"}
 
 # Map LLM key names to pyautogui key names
 KEY_MAP = {
@@ -21,7 +21,29 @@ KEY_MAP = {
     # Add more aliases if needed
 }
 
-def execute_steps(steps):
+def find_text_coordinates(target_text, ocr_annotations):
+    """Find coordinates for a text target using OCR annotations"""
+    if not ocr_annotations:
+        return None, None
+    
+    # Try exact match first
+    for ann in ocr_annotations:
+        if ann['text'].strip() == target_text.strip():
+            return ann['x'], ann['y']
+    
+    # Try partial match
+    for ann in ocr_annotations:
+        if target_text.strip().lower() in ann['text'].strip().lower():
+            return ann['x'], ann['y']
+    
+    # Try reverse partial match (annotation text in target)
+    for ann in ocr_annotations:
+        if ann['text'].strip().lower() in target_text.strip().lower():
+            return ann['x'], ann['y']
+    
+    return None, None
+
+def execute_steps(steps, ocr_annotations=None):
     if isinstance(steps, str):
         print("[!] Steps not structured.\n", steps)
         return
@@ -44,6 +66,22 @@ def execute_steps(steps):
                 pyautogui.hotkey(*mapped_keys)
             else:
                 print(f"[!] 'press' action missing or invalid 'keys': {step}")
+        elif action == "click_text":
+            target_text = step.get("target", "")
+            if not target_text:
+                print(f"[!] 'click_text' action missing 'target': {step}")
+                continue
+            
+            if not ocr_annotations:
+                print(f"[!] No OCR annotations available for click_text action: {step}")
+                continue
+            
+            x, y = find_text_coordinates(target_text, ocr_annotations)
+            if x is not None and y is not None:
+                print(f"[Agent] Clicking text '{target_text}' at coordinates ({x}, {y})")
+                pyautogui.click(x=x, y=y)
+            else:
+                print(f"[!] Could not find text '{target_text}' in OCR annotations")
         elif action == "mouse":
             x = step.get("x")
             y = step.get("y")

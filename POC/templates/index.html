@@ -259,6 +259,8 @@
             <div id="agentTransparency" style="display: none;">
                 <div class="section-title">🖥️ Current Screen</div>
                 <img id="screenshotImg" class="screenshot" src="" alt="Screenshot">
+                <div class="section-title">🔍 OCR Annotations (Clickable Elements)</div>
+                <div id="ocrBox" class="ocr-box"></div>
                 <div class="section-title">📝 Actions Taken</div>
                 <div id="actionsList" class="actions-list"></div>
                 <div class="section-title">🤖 LLM Prompt</div>
@@ -319,6 +321,15 @@
                     screenshotImg.src = 'data:image/png;base64,' + state.screen_b64;
                 } else {
                     screenshotImg.src = '';
+                }
+                // OCR Annotations
+                const ocrBox = document.getElementById('ocrBox');
+                if (state.ocr_annotations && state.ocr_annotations.length > 0) {
+                    ocrBox.innerHTML = state.ocr_annotations.map(ann => 
+                        `<div>• "${ann.text}" at (${ann.x}, ${ann.y})</div>`
+                    ).join('');
+                } else {
+                    ocrBox.textContent = 'No text elements detected';
                 }
                 // Actions
                 document.getElementById('actionsList').textContent = JSON.stringify(state.actions_taken, null, 2);

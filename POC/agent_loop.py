@@ -2,12 +2,22 @@ import os
 import time
 import mss
 import io
+from google.cloud import vision
+from google.cloud.vision_v1 import types
 from desktop_actions import execute_steps
 from openai import AzureOpenAI
 import base64
 import json
 from system_info import get_system_info
 from config import AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT
+
+# Check for Google Cloud Vision API key
+GOOGLE_CREDENTIALS = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+if not GOOGLE_CREDENTIALS or not os.path.exists(GOOGLE_CREDENTIALS):
+    raise RuntimeError("Google Cloud Vision API key not found. Please set the GOOGLE_APPLICATION_CREDENTIALS environment variable to your service account JSON file.")
+
+# Initialize Google Cloud Vision client
+vision_client = vision.ImageAnnotatorClient()
 
 # Initialize OpenAI client (new API)
 openai_client = AzureOpenAI(
@@ -21,7 +31,9 @@ agent_state = {
     'goal': None,
     'actions_taken': [],
     'step': 0,
+    'screen_ocr': '',
     'screen_b64': '',
+    'ocr_annotations': [],
     'llm_prompt': '',
     'llm_response': '',
     'status': 'idle',
@@ -38,9 +50,55 @@ def capture_screen():
         img_b64 = base64.b64encode(img_bytes).decode('utf-8')
         return img_bytes, img_b64
 
-def build_llm_prompt(goal, actions_taken):
+def ocr_screen_with_coordinates(img_bytes):
+    """Extract text with coordinate annotations from the screen"""
+    image = types.Image(content=img_bytes)
+    response = vision_client.text_detection(image=image)
+    texts = response.text_annotations
+    
+    if not texts:
+        return "", []
+    
+    # Full text content
+    full_text = texts[0].description
+    
+    # Extract individual text elements with coordinates
+    annotations = []
+    for text in texts[1:]:  # Skip the first one as it contains all text
+        text_content = text.description
+        vertices = text.bounding_poly.vertices
+        
+        # Calculate bounding box coordinates
+        x_coords = [vertex.x for vertex in vertices]
+        y_coords = [vertex.y for vertex in vertices]
+        
+        # Calculate center point
+        center_x = sum(x_coords) / len(x_coords)
+        center_y = sum(y_coords) / len(y_coords)
+        
+        annotations.append({
+            'text': text_content,
+            'x': int(center_x),
+            'y': int(center_y),
+            'bbox': {
+                'x1': min(x_coords),
+                'y1': min(y_coords),
+                'x2': max(x_coords),
+                'y2': max(y_coords)
+            }
+        })
+    
+    return full_text, annotations
+
+def build_llm_prompt(goal, actions_taken, ocr_annotations):
     sysinfo = get_system_info()
     sysinfo_str = f"OS: {sysinfo['os']} {sysinfo['os_version']} | Arch: {sysinfo['architecture']} | Desktop: {sysinfo.get('desktop_environment', 'unknown')}"
+    
+    # Format OCR annotations for the prompt
+    ocr_info = "Available clickable text elements on screen:\n"
+    for ann in ocr_annotations:
+        ocr_info += f"- '{ann['text']}' at position ({ann['x']}, {ann['y']})\n"
+    
     prompt = f'''
 You are an agent controlling a computer only through simulated mouse and keyboard actions.
 
@@ -52,6 +110,8 @@ Your goal is: "{goal}"
 Here are the actions you have taken so far:
 {json.dumps(actions_taken, indent=2)}
 
+{ocr_info}
+
 IMPORTANT: Look carefully at the current screen image. If you see evidence that your previous actions were incorrect, made a mistake, or didn't achieve the intended result, you MUST correct course immediately. Don't continue with a flawed approach - adapt and fix the situation.
 
 Examples of when to correct course:
@@ -61,17 +121,25 @@ Examples of when to correct course:
 - If you see an error message, address it appropriately
 - If the screen shows something unexpected, adjust your strategy
 
+CURSOR POSITION AWARENESS: Pay special attention to the cursor location in the screenshot. When deciding on mouse movements:
+- If the cursor is already at or near the target location, you may not need to move it
+- If the cursor is far from where you need to click, specify the exact coordinates to move it
+- Consider the current cursor position when planning your next mouse action
+- Avoid unnecessary mouse movements if the cursor is already positioned correctly
+- Additionally, use keyboard shortcuts to navigate the UI when possible.
+
 You can only use these actions:
 - {{"action": "type", "text": "..."}}  # For typing plain text (no modifiers)
 - {{"action": "press", "keys": [key1, key2, ...]}}  # For keyboard shortcuts or modifier keys (e.g., ['command', 't'] for Cmd+T)
-- {{"action": "mouse", "x": ..., "y": ..., "button": "left"|"right"|"middle", "clicks": 1}}
+- {{"action": "click_text", "target": "text to click"}}  # Click on text element (use exact text from OCR annotations)
 
 Examples:
 - To type 'hello', use: {{"action": "type", "text": "hello"}}
 - To press Cmd+T (open new tab on macOS), use: {{"action": "press", "keys": ["command", "t"]}}
 - To press Ctrl+W, use: {{"action": "press", "keys": ["ctrl", "w"]}}
+- To click on a button with text "Submit", use: {{"action": "click_text", "target": "Submit"}}
 
-Look at the current screen image and determine what action to take next to achieve your goal. If you need to correct a previous mistake, do so immediately.
+Look at the current screen image and determine what action to take next to achieve your goal. If you need to correct a previous mistake, do so immediately. Pay special attention to the cursor position when deciding mouse movements.
 
 If the goal is achieved, respond with:
 {{"action": "done"}}
@@ -130,8 +198,12 @@ def agent_autorun(goal, max_steps=20):
         # 1. Capture the screen
         img_bytes, img_b64 = capture_screen()
         agent_state['screen_b64'] = img_b64
-        # 2. Build LLM prompt
-        prompt = build_llm_prompt(goal, agent_state['actions_taken'])
+        # 2. OCR the screen with coordinates
+        screen_text, ocr_annotations = ocr_screen_with_coordinates(img_bytes)
+        agent_state['screen_ocr'] = screen_text
+        agent_state['ocr_annotations'] = ocr_annotations
+        # 3. Build LLM prompt
+        prompt = build_llm_prompt(goal, agent_state['actions_taken'], agent_state['ocr_annotations'])
         agent_state['llm_prompt'] = prompt
         # 4. Call LLM
         llm_response = call_llm(prompt, img_b64)
@@ -152,7 +224,7 @@ def agent_autorun(goal, max_steps=20):
             print(f"[Agent] {agent_state['message']}")
             break
         else:
-            execute_steps([action])
+            execute_steps([action], agent_state['ocr_annotations'])
         time.sleep(1)  # Small delay between steps
     else:
         agent_state['status'] = 'max_steps'
