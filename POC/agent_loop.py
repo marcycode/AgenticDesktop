@@ -8,6 +8,7 @@ from desktop_actions import execute_steps
 import openai
 import base64
 import json
+from system_info import get_system_info
 
 # Check for Google Cloud Vision API key
 GOOGLE_CREDENTIALS = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
@@ -51,8 +52,15 @@ def ocr_screen(img_bytes):
     return ""
 
 def build_llm_prompt(goal, actions_taken, screen_ocr):
+    sysinfo = get_system_info()
+    sysinfo_str = f"OS: {sysinfo['os']} {sysinfo['os_version']} | Arch: {sysinfo['architecture']} | Desktop: {sysinfo.get('desktop_environment', 'unknown')}"
     prompt = f'''
-You are an agent controlling a computer only through simulated mouse and keyboard actions. Your goal is: "{goal}"
+You are an agent controlling a computer only through simulated mouse and keyboard actions.
+
+Device/system info:
+{sysinfo_str}
+
+Your goal is: "{goal}"
 
 Here is the text currently visible on the screen (from OCR):
 {screen_ocr}
@@ -60,19 +68,22 @@ Here is the text currently visible on the screen (from OCR):
 Here are the actions you have taken so far:
 {json.dumps(actions_taken, indent=2)}
 
-Based on the current screen and your goal, what is the next low-level action you should take? 
-Respond ONLY with a single JSON object in one of these formats:
+You can only use these actions:
+- {{"action": "type", "text": "..."}}  # For typing plain text (no modifiers)
+- {{"action": "press", "keys": [key1, key2, ...]}}  # For keyboard shortcuts or modifier keys (e.g., ['command', 't'] for Cmd+T)
+- {{"action": "mouse", "x": ..., "y": ..., "button": "left"|"right"|"middle", "clicks": 1}}
 
-{{"action": "mouse", "x": ..., "y": ..., "button": "left"|"right"|"middle", "clicks": 1}}
-or
-{{"action": "type", "text": "..."}}
+Examples:
+- To type 'hello', use: {{"action": "type", "text": "hello"}}
+- To press Cmd+T (open new tab on macOS), use: {{"action": "press", "keys": ["command", "t"]}}
+- To press Ctrl+W, use: {{"action": "press", "keys": ["ctrl", "w"]}}
 
 If the goal is achieved, respond with:
 {{"action": "done"}}
 If you are stuck or need clarification, respond with:
 {{"action": "ask", "message": "..."}}
 
-Do not include any explanation or extra text.
+Respond ONLY with a single JSON object and no extra text.
 '''
     return prompt
 

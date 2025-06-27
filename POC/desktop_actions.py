@@ -34,6 +34,7 @@ def execute_steps(steps):
             pyautogui.typewrite(msg)
         elif action == "press":
             keys = step.get("keys")
+            print("KEYS HERE", keys)
             if isinstance(keys, str):
                 keys = [keys]
             if keys and isinstance(keys, list):
