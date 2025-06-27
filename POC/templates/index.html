@@ -119,6 +119,16 @@
             transform: translateY(-2px);
         }
 
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+
         .btn:disabled {
             opacity: 0.6;
             cursor: not-allowed;
@@ -161,6 +171,7 @@
         .status-ask { background: #f8d7da; color: #721c24; }
         .status-idle { background: #e2e3e5; color: #383d41; }
         .status-max_steps { background: #f8d7da; color: #721c24; }
+        .status-stopped { background: #f8d7da; color: #721c24; }
 
         .section-title {
             font-weight: 600;
@@ -241,6 +252,7 @@
                 <div class="input-container">
                     <input type="text" id="commandInput" class="command-input" placeholder="Describe your goal (e.g., 'open calculator and type 123')">
                     <button class="btn btn-primary" onclick="startAgenticLoop()" id="startBtn">Start</button>
+                    <button class="btn btn-danger" onclick="stopAgenticLoop()" id="stopBtn" style="display: none;">Stop</button>
                 </div>
             </div>
             <div id="agentStatusBox" style="margin-bottom: 20px;"></div>
@@ -269,6 +281,8 @@
                 return;
             }
             document.getElementById('startBtn').disabled = true;
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'inline-block';
             fetch('/api/process_command', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -283,11 +297,15 @@
                 } else {
                     alert('Failed to start agentic loop: ' + (data.error || 'Unknown error'));
                     document.getElementById('startBtn').disabled = false;
+                    document.getElementById('startBtn').style.display = 'inline-block';
+                    document.getElementById('stopBtn').style.display = 'none';
                 }
             })
             .catch(err => {
                 alert('Error: ' + err);
                 document.getElementById('startBtn').disabled = false;
+                document.getElementById('startBtn').style.display = 'inline-block';
+                document.getElementById('stopBtn').style.display = 'none';
             });
         }
         function pollAgentState() {
@@ -320,10 +338,33 @@
                     agentMsg.style.display = 'none';
                 }
                 // Stop polling if done or ask or max_steps
-                if (["done", "ask", "max_steps"].includes(state.status)) {
+                if (["done", "ask", "max_steps", "stopped"].includes(state.status)) {
                     clearInterval(pollingInterval);
                     document.getElementById('startBtn').disabled = false;
+                    document.getElementById('startBtn').style.display = 'inline-block';
+                    document.getElementById('stopBtn').style.display = 'none';
                 }
+            });
+        }
+        function stopAgenticLoop() {
+            fetch('/api/agent/stop', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'stopped') {
+                    clearInterval(pollingInterval);
+                    document.getElementById('startBtn').disabled = false;
+                    document.getElementById('startBtn').style.display = 'inline-block';
+                    document.getElementById('stopBtn').style.display = 'none';
+                    document.getElementById('agentStatusBox').innerHTML = '<b>Status:</b> <span class="status-badge status-idle">STOPPED</span>';
+                } else {
+                    alert('Failed to stop agentic loop: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                alert('Error stopping agentic loop: ' + err);
             });
         }
     </script>

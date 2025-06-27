@@ -11,7 +11,7 @@ import base64
 import io
 import mss
 from PIL import Image
-from agent_loop import agent_autorun, get_agent_state, agent_state
+from agent_loop import agent_autorun, get_agent_state, agent_state, stop_agent_loop
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here' # left blank is for now
@@ -116,6 +116,15 @@ def process_command():
 def get_agentic_state():
     # Return the current agent state for the web UI
     return jsonify(get_agent_state())
+
+@app.route('/api/agent/stop', methods=['POST'])
+def stop_agentic_loop():
+    # Stop the currently running agent loop
+    try:
+        stop_agent_loop()
+        return jsonify({'status': 'stopped'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # (Optional) Legacy endpoints can be removed or left for compatibility
 @app.route('/api/voice_command', methods=['POST'])

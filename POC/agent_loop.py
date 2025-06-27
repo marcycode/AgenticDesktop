@@ -36,7 +36,8 @@ agent_state = {
     'llm_prompt': '',
     'llm_response': '',
     'status': 'idle',
-    'message': ''
+    'message': '',
+    'stop_requested': False
 }
 
 def capture_screen():
@@ -122,8 +123,16 @@ def agent_autorun(goal, max_steps=20):
     agent_state['step'] = 0
     agent_state['status'] = 'running'
     agent_state['message'] = ''
+    agent_state['stop_requested'] = False
     print(f"[Agent] Starting autorun perception-action loop for goal: {goal}")
     for step in range(max_steps):
+        # Check if stop was requested
+        if agent_state['stop_requested']:
+            agent_state['status'] = 'stopped'
+            agent_state['message'] = 'Agent loop stopped by user.'
+            print("[Agent] Agent loop stopped by user.")
+            break
+            
         agent_state['step'] = step
         # 1. Capture the screen
         img_bytes, img_b64 = capture_screen()
@@ -163,6 +172,11 @@ def agent_autorun(goal, max_steps=20):
 def get_agent_state():
     """Return the current agent state for the web UI."""
     return agent_state
+
+def stop_agent_loop():
+    """Stop the currently running agent loop."""
+    agent_state['stop_requested'] = True
+    return True
 
 if __name__ == "__main__":
     print("=== AGENTIC DESKTOP: PERCEPTION-ACTION LOOP (AUTORUN) ===")
