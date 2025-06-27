@@ -259,8 +259,6 @@
             <div id="agentTransparency" style="display: none;">
                 <div class="section-title">🖥️ Current Screen</div>
                 <img id="screenshotImg" class="screenshot" src="" alt="Screenshot">
-                <div class="section-title">🔍 OCR (Screen Text)</div>
-                <div id="ocrBox" class="ocr-box"></div>
                 <div class="section-title">📝 Actions Taken</div>
                 <div id="actionsList" class="actions-list"></div>
                 <div class="section-title">🤖 LLM Prompt</div>
@@ -322,8 +320,6 @@
                 } else {
                     screenshotImg.src = '';
                 }
-                // OCR
-                document.getElementById('ocrBox').textContent = state.screen_ocr || '';
                 // Actions
                 document.getElementById('actionsList').textContent = JSON.stringify(state.actions_taken, null, 2);
                 // LLM prompt/response

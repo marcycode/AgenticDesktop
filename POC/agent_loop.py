@@ -2,22 +2,12 @@ import os
 import time
 import mss
 import io
-from google.cloud import vision
-from google.cloud.vision_v1 import types
 from desktop_actions import execute_steps
 from openai import AzureOpenAI
 import base64
 import json
 from system_info import get_system_info
 from config import AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT
-
-# Check for Google Cloud Vision API key
-GOOGLE_CREDENTIALS = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
-if not GOOGLE_CREDENTIALS or not os.path.exists(GOOGLE_CREDENTIALS):
-    raise RuntimeError("Google Cloud Vision API key not found. Please set the GOOGLE_APPLICATION_CREDENTIALS environment variable to your service account JSON file.")
-
-# Initialize Google Cloud Vision client
-vision_client = vision.ImageAnnotatorClient()
 
 # Initialize OpenAI client (new API)
 openai_client = AzureOpenAI(
@@ -31,7 +21,6 @@ agent_state = {
     'goal': None,
     'actions_taken': [],
     'step': 0,
-    'screen_ocr': '',
     'screen_b64': '',
     'llm_prompt': '',
     'llm_response': '',
@@ -49,15 +38,7 @@ def capture_screen():
         img_b64 = base64.b64encode(img_bytes).decode('utf-8')
         return img_bytes, img_b64
 
-def ocr_screen(img_bytes):
-    image = types.Image(content=img_bytes)
-    response = vision_client.text_detection(image=image)
-    texts = response.text_annotations
-    if texts:
-        return texts[0].description  # Full detected text
-    return ""
-
-def build_llm_prompt(goal, actions_taken, screen_ocr):
+def build_llm_prompt(goal, actions_taken):
     sysinfo = get_system_info()
     sysinfo_str = f"OS: {sysinfo['os']} {sysinfo['os_version']} | Arch: {sysinfo['architecture']} | Desktop: {sysinfo.get('desktop_environment', 'unknown')}"
     prompt = f'''
@@ -68,11 +49,17 @@ Device/system info:
 
 Your goal is: "{goal}"
 
-Here is the text currently visible on the screen (from OCR):
-{screen_ocr}
-
 Here are the actions you have taken so far:
 {json.dumps(actions_taken, indent=2)}
+
+IMPORTANT: Look carefully at the current screen image. If you see evidence that your previous actions were incorrect, made a mistake, or didn't achieve the intended result, you MUST correct course immediately. Don't continue with a flawed approach - adapt and fix the situation.
+
+Examples of when to correct course:
+- If you opened the wrong application, close it and open the correct one
+- If you typed in the wrong field, clear it and type in the right place
+- If you clicked the wrong button, undo the action or navigate back
+- If you see an error message, address it appropriately
+- If the screen shows something unexpected, adjust your strategy
 
 You can only use these actions:
 - {{"action": "type", "text": "..."}}  # For typing plain text (no modifiers)
@@ -84,21 +71,27 @@ Examples:
 - To press Cmd+T (open new tab on macOS), use: {{"action": "press", "keys": ["command", "t"]}}
 - To press Ctrl+W, use: {{"action": "press", "keys": ["ctrl", "w"]}}
 
+Look at the current screen image and determine what action to take next to achieve your goal. If you need to correct a previous mistake, do so immediately.
+
 If the goal is achieved, respond with:
 {{"action": "done"}}
-If you are stuck or need clarification, respond with:
-{{"action": "ask", "message": "..."}}
 
 Respond ONLY with a single JSON object and no extra text.
 '''
     return prompt
 
-def call_llm(prompt):
+def call_llm(prompt, image_b64):
     response = openai_client.chat.completions.create(
-        model="gpt-4.1-nano",
+        model="gpt-4o",
         messages=[
             {"role": "system", "content": "You are a desktop automation agent. Follow instructions precisely."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "user", 
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}"}}
+                ]
+            }
         ],
         temperature=0.2,
         max_tokens=256
@@ -137,14 +130,11 @@ def agent_autorun(goal, max_steps=20):
         # 1. Capture the screen
         img_bytes, img_b64 = capture_screen()
         agent_state['screen_b64'] = img_b64
-        # 2. OCR the screen
-        screen_text = ocr_screen(img_bytes)
-        agent_state['screen_ocr'] = screen_text
-        # 3. Build LLM prompt
-        prompt = build_llm_prompt(goal, agent_state['actions_taken'], screen_text)
+        # 2. Build LLM prompt
+        prompt = build_llm_prompt(goal, agent_state['actions_taken'])
         agent_state['llm_prompt'] = prompt
         # 4. Call LLM
-        llm_response = call_llm(prompt)
+        llm_response = call_llm(prompt, img_b64)
         agent_state['llm_response'] = llm_response
         print(f"[LLM Prompt]:\n{prompt}\n[LLM Response]:\n{llm_response}")
         # 5. Parse LLM response
