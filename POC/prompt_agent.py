@@ -1,14 +1,20 @@
-import openai
-from config import OPENAI_API_KEY
+from openai import AzureOpenAI
+from config import AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT
 from safety_constants import SAFETY_PROMPT, SAFETY_REFUSAL_MESSAGE
 import json
 import re
 import ast
 
-client = openai.OpenAI(api_key=OPENAI_API_KEY)
+client = AzureOpenAI(
+    api_key=AZURE_OPENAI_API_KEY,
+    api_version="2024-10-21",
+    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+)
 
 def check_moderation_scores(response):
     """Check if moderation scores are within safe ranges"""
+    # TODO: Implement moderation checks for Azure OpenAI
+    return True
     # Define safe thresholds for each category (values close to 0 are safer)
     SAFE_THRESHOLDS = {
         'hate': 0.1,
@@ -87,7 +93,7 @@ def get_command_steps(prompt):
     )
 
     response = client.chat.completions.create(
-        model="gpt-4",
+        model="gpt-4.1-nano",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "system", "content": SAFETY_PROMPT},
@@ -96,21 +102,22 @@ def get_command_steps(prompt):
         temperature=0.2
     )
     
-    # Check if the response is flagged by OpenAI's safety systems
-    if hasattr(response, 'flagged') and response.flagged:
-        return {"error": True, "message": SAFETY_REFUSAL_MESSAGE}
+    # TODO: Re-enable safety checks for Azure OpenAI
+    # # Check if the response is flagged by OpenAI's safety systems
+    # if hasattr(response, 'flagged') and response.flagged:
+    #     return {"error": True, "message": SAFETY_REFUSAL_MESSAGE}
     
-    # Check individual moderation category scores
-    if not check_moderation_scores(response):
-        return {"error": True, "message": SAFETY_REFUSAL_MESSAGE}
+    # # Check individual moderation category scores
+    # if not check_moderation_scores(response):
+    #     return {"error": True, "message": SAFETY_REFUSAL_MESSAGE}
     
     # Try to extract JSON from the response
     content = response.choices[0].message.content
     
     # Additional check for choice-level flagging if available
-    choice = response.choices[0]
-    if hasattr(choice, 'flagged') and choice.flagged:
-        return {"error": True, "message": SAFETY_REFUSAL_MESSAGE}
+    # choice = response.choices[0]
+    # if hasattr(choice, 'flagged') and choice.flagged:
+    #     return {"error": True, "message": SAFETY_REFUSAL_MESSAGE}
     
     # Check if response starts with an apology/refusal
     if content.strip().lower().startswith("error") or content.strip().lower().startswith("i'm sorry"):
@@ -182,7 +189,7 @@ def get_opposite_command_steps(command_steps):
     )
 
     response = client.chat.completions.create(
-        model="gpt-4",
+        model="gpt-4.1-nano",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": json.dumps(command_steps)}

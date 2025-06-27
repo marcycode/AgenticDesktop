@@ -5,10 +5,11 @@ import io
 from google.cloud import vision
 from google.cloud.vision_v1 import types
 from desktop_actions import execute_steps
-import openai
+from openai import AzureOpenAI
 import base64
 import json
 from system_info import get_system_info
+from config import AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT
 
 # Check for Google Cloud Vision API key
 GOOGLE_CREDENTIALS = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
@@ -19,7 +20,11 @@ if not GOOGLE_CREDENTIALS or not os.path.exists(GOOGLE_CREDENTIALS):
 vision_client = vision.ImageAnnotatorClient()
 
 # Initialize OpenAI client (new API)
-openai_client = openai.OpenAI()
+openai_client = AzureOpenAI(
+    api_key=AZURE_OPENAI_API_KEY,
+    api_version="2024-10-21",
+    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+)
 
 # State for transparency and web UI
 agent_state = {
@@ -89,7 +94,7 @@ Respond ONLY with a single JSON object and no extra text.
 
 def call_llm(prompt):
     response = openai_client.chat.completions.create(
-        model="gpt-4",
+        model="gpt-4.1-nano",
         messages=[
             {"role": "system", "content": "You are a desktop automation agent. Follow instructions precisely."},
             {"role": "user", "content": prompt}

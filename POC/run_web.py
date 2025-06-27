@@ -11,17 +11,16 @@ def main():
     print("   • Local: http://localhost:5001")
     print("   • Network: http://0.0.0.0:5001")
     print("=" * 50)
-    print("Make sure you have your .env file with OPENAI_API_KEY configured!")
+    print("Make sure you have your Azure OpenAI credentials configured!")
     print("Press Ctrl+C to stop the server")
     print("=" * 50)
     
     try:
-        # Check if OPENAI_API_KEY is configured
-        from config import OPENAI_API_KEY
-        if not OPENAI_API_KEY:
-            print("WARNING: OPENAI_API_KEY not found in environment!")
-            print("   Please create a .env file with your OpenAI API key.")
-            print("   Example: OPENAI_API_KEY=your_api_key_here")
+        # Check if AZURE_OPENAI_API_KEY is configured
+        from config import AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT
+        if not AZURE_OPENAI_API_KEY or not AZURE_OPENAI_ENDPOINT:
+            print("WARNING: Azure OpenAI credentials not found in environment!")
+            print("   Please check your config.py or .env file.")
             print("")
         
         # Start the Flask-SocketIO server
