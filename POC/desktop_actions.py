@@ -160,8 +160,20 @@ def execute_steps(steps, ocr_annotations=None):
                 print(f"[!] 'click_text' action missing 'target': {step}")
                 continue
             
-            # Check if this looks like a keyboard key that should be pressed instead of clicked
+            # Safety check: Prevent clicking on UI control elements
+            ui_control_words = {
+                'stop', 'start', 'pause', 'reset', 'clear', 'close', 'exit', 'quit',
+                'cancel', 'abort', 'terminate', 'kill', 'end', 'finish', 'done',
+                'refresh', 'reload', 'update', 'save', 'load', 'import', 'export'
+            }
+            
             target_lower = target_text.lower().strip()
+            if target_lower in ui_control_words:
+                print(f"[Safety] Blocked attempt to click on UI control: '{target_text}'")
+                print(f"[Safety] This appears to be a UI control element and should not be clicked.")
+                continue
+            
+            # Check if this looks like a keyboard key that should be pressed instead of clicked
             if target_lower in KEY_MAP:
                 print(f"[Agent] Converting click on '{target_text}' to key press")
                 pyautogui.press(KEY_MAP[target_lower])
