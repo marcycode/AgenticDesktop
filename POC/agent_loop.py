@@ -117,9 +117,9 @@ def ocr_screen_with_coordinates(img_bytes):
     used_indices = set()
     
     # Parameters for merging
-    max_horizontal_gap = 50  # pixels between words horizontally
-    max_vertical_gap = 20    # pixels between words vertically
-    max_height_diff = 15     # max height difference for same line
+    max_horizontal_gap = 25  # pixels between words horizontally
+    max_vertical_gap = 10    # pixels between words vertically
+    max_height_diff = 8      # max height difference for same line
     
     for i, element in enumerate(text_elements):
         if i in used_indices:
@@ -263,12 +263,10 @@ Examples of when to correct course:
 - If you see an error message, address it appropriately
 - If the screen shows something unexpected, adjust your strategy
 
-CURSOR POSITION AWARENESS: Pay special attention to the cursor location in the screenshot. When deciding on mouse movements:
-- If the cursor is already at or near the target location, you may not need to move it
-- If the cursor is far from where you need to click, specify the exact coordinates to move it
-- Consider the current cursor position when planning your next mouse action
-- Avoid unnecessary mouse movements if the cursor is already positioned correctly
-- Additionally, use keyboard shortcuts to navigate the UI when possible.
+DO NOT USE THE MOUSE UNLESS YOU HAVE TO. A common mistake is to type something and then click on it. This is not allowed. Press the enter key to submit the form. Furthermore, if you have already clicked on something, do not click on it again. Try pressing enter instead.
+
+DO NOT CLICK ON THE SAME TEXT ELEMENT MORE THAN TWICE. If you have already clicked on something, do not click on it again. Try pressing enter instead.
+
 
 You can only use these actions:
 - {{"action": "type", "text": "..."}}  # For typing plain text (no modifiers)
