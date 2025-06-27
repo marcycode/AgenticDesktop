@@ -120,6 +120,10 @@ def ocr_screen_with_coordinates(img_bytes):
     max_horizontal_gap = 25  # pixels between words horizontally
     max_vertical_gap = 10    # pixels between words vertically
     max_height_diff = 8      # max height difference for same line
+    # Parameters for merging - adjusted for better results
+    max_horizontal_gap = 80  # pixels between words horizontally (increased)
+    max_vertical_gap = 25    # pixels between words vertically (increased)
+    max_height_diff = 20     # max height difference for same line (increased)
     
     for i, element in enumerate(text_elements):
         if i in used_indices:
@@ -143,7 +147,7 @@ def ocr_screen_with_coordinates(img_bytes):
                 else:
                     gap = element['bbox']['x1'] - other_element['bbox']['x2']
                     
-                if gap <= max_horizontal_gap and gap >= -10:  # Allow slight overlap
+                if gap <= max_horizontal_gap and gap >= -20:  # Allow more overlap
                     group.append(other_element)
                     used_indices.add(j)
         
@@ -160,8 +164,13 @@ def ocr_screen_with_coordinates(img_bytes):
             min_y = min(elem['bbox']['y1'] for elem in group)
             max_y = max(elem['bbox']['y2'] for elem in group)
             
-            # Merge text with spaces
-            merged_text = ' '.join(elem['text'] for elem in group)
+            # Merge text with spaces, but be smart about it
+            text_parts = []
+            for elem in group:
+                text_parts.append(elem['text'])
+            
+            # Join with spaces, but don't add extra spaces
+            merged_text = ' '.join(text_parts)
             
             # Calculate center
             center_x = (min_x + max_x) // 2
@@ -253,6 +262,8 @@ CRITICAL INSTRUCTIONS:
 2. Use the EXACT text strings shown in the OCR list for clicking.
 3. If you need to click on something that's not in the OCR list, you cannot do it - find an alternative approach.
 4. Pay attention to instance numbers if there are multiple elements with the same text.
+5. For keyboard actions (Enter, Tab, Escape, etc.), use the "press" action, NOT "click_text".
+6. If you see a button or element that looks like a keyboard key, use "press" action instead of clicking.
 
 IMPORTANT: Look carefully at the current screen image. If you see evidence that your previous actions were incorrect, made a mistake, or didn't achieve the intended result, you MUST correct course immediately. Don't continue with a flawed approach - adapt and fix the situation.
 
@@ -277,6 +288,8 @@ Examples:
 - To type 'hello', use: {{"action": "type", "text": "hello"}}
 - To press Cmd+T (open new tab on macOS), use: {{"action": "press", "keys": ["command", "t"]}}
 - To press Ctrl+W, use: {{"action": "press", "keys": ["ctrl", "w"]}}
+- To press Enter key, use: {{"action": "press", "keys": ["enter"]}}
+- To press Tab key, use: {{"action": "press", "keys": ["tab"]}}
 - To click on a button with text "Submit", use: {{"action": "click_text", "target": "Submit"}}
 - To click on a menu item "File", use: {{"action": "click_text", "target": "File"}}
 
