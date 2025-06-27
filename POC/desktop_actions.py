@@ -43,6 +43,25 @@ def find_text_coordinates(target_text, ocr_annotations):
     
     return None, None
 
+def test_click_coordinates(x, y, text="test"):
+    """Test function to debug coordinate clicking"""
+    print(f"[Debug] Attempting to click '{text}' at coordinates ({x}, {y})")
+    
+    # Get current mouse position
+    current_x, current_y = pyautogui.position()
+    print(f"[Debug] Current mouse position: ({current_x}, {current_y})")
+    
+    # Move mouse to target position
+    pyautogui.moveTo(x, y, duration=0.5)
+    
+    # Get new mouse position
+    new_x, new_y = pyautogui.position()
+    print(f"[Debug] Mouse moved to: ({new_x}, {new_y})")
+    
+    # Click
+    pyautogui.click()
+    print(f"[Debug] Clicked at ({new_x}, {new_y})")
+
 def execute_steps(steps, ocr_annotations=None):
     if isinstance(steps, str):
         print("[!] Steps not structured.\n", steps)

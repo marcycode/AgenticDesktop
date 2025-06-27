@@ -48,10 +48,16 @@ def capture_screen():
         img_bytes = mss.tools.to_png(screenshot.rgb, screenshot.size)
         # For web UI: base64 encode
         img_b64 = base64.b64encode(img_bytes).decode('utf-8')
+        
+        # Debug: Print monitor and image information
+        print(f"[Debug] Monitor info: {monitor}")
+        print(f"[Debug] Screenshot size: {screenshot.size}")
+        print(f"[Debug] Image bytes size: {len(img_bytes)}")
+        
         return img_bytes, img_b64
 
 def ocr_screen_with_coordinates(img_bytes):
-    """Extract text with coordinate annotations from the screen"""
+    """Extract text with coordinate annotations from the screen, robust scaling for Retina/HiDPI displays."""
     image = types.Image(content=img_bytes)
     response = vision_client.text_detection(image=image)
     texts = response.text_annotations
@@ -62,32 +68,59 @@ def ocr_screen_with_coordinates(img_bytes):
     # Full text content
     full_text = texts[0].description
     
-    # Extract individual text elements with coordinates
-    annotations = []
-    for text in texts[1:]:  # Skip the first one as it contains all text
+    # Get scaling factor using mss
+    with mss.mss() as sct:
+        monitor = sct.monitors[1]
+        screenshot = sct.grab(monitor)
+        screen_width = monitor['width']
+        screen_height = monitor['height']
+        screenshot_width = screenshot.width
+        screenshot_height = screenshot.height
+        scale_x = screen_width / screenshot_width
+        scale_y = screen_height / screenshot_height
+        # Optional: print debug info
+        print(f"[Debug] Screen: {screen_width}x{screen_height}, Screenshot: {screenshot_width}x{screenshot_height}, Scale: x={scale_x:.3f}, y={scale_y:.3f}")
+    
+    # Group by text content for instance tracking
+    text_groups = {}
+    for text in texts[1:]:
         text_content = text.description
         vertices = text.bounding_poly.vertices
-        
-        # Calculate bounding box coordinates
         x_coords = [vertex.x for vertex in vertices]
         y_coords = [vertex.y for vertex in vertices]
-        
-        # Calculate center point
         center_x = sum(x_coords) / len(x_coords)
         center_y = sum(y_coords) / len(y_coords)
-        
-        annotations.append({
+        # Scale to screen coordinates
+        screen_x = int(center_x * scale_x)
+        screen_y = int(center_y * scale_y)
+        bbox = {
+            'x1': int(min(x_coords) * scale_x),
+            'y1': int(min(y_coords) * scale_y),
+            'x2': int(max(x_coords) * scale_x),
+            'y2': int(max(y_coords) * scale_y)
+        }
+        ann = {
             'text': text_content,
-            'x': int(center_x),
-            'y': int(center_y),
-            'bbox': {
-                'x1': min(x_coords),
-                'y1': min(y_coords),
-                'x2': max(x_coords),
-                'y2': max(y_coords)
-            }
-        })
-    
+            'x': screen_x,
+            'y': screen_y,
+            'bbox': bbox
+        }
+        if text_content not in text_groups:
+            text_groups[text_content] = []
+        text_groups[text_content].append(ann)
+    # Add instance info
+    annotations = []
+    for text_content, instances in text_groups.items():
+        if len(instances) == 1:
+            ann = instances[0]
+            ann['index'] = 0
+            ann['total_instances'] = 1
+            annotations.append(ann)
+        else:
+            for i, ann in enumerate(instances):
+                ann['index'] = i
+                ann['total_instances'] = len(instances)
+                annotations.append(ann)
     return full_text, annotations
 
 def build_llm_prompt(goal, actions_taken, ocr_annotations):
@@ -240,8 +273,41 @@ def stop_agent_loop():
     agent_state['stop_requested'] = True
     return True
 
+def get_current_mouse_position():
+    """Get current mouse position for debugging"""
+    import pyautogui
+    x, y = pyautogui.position()
+    print(f"[Debug] Current mouse position: ({x}, {y})")
+    return x, y
+
+def test_coordinate_mapping():
+    """Test function to debug coordinate mapping between OCR and mouse"""
+    print("=== COORDINATE MAPPING TEST ===")
+    
+    # Capture screen
+    img_bytes, img_b64 = capture_screen()
+    
+    # Get current mouse position
+    mouse_x, mouse_y = get_current_mouse_position()
+    
+    # Perform OCR
+    screen_text, ocr_annotations = ocr_screen_with_coordinates(img_bytes)
+    
+    print(f"\n[Debug] OCR found {len(ocr_annotations)} text elements:")
+    for i, ann in enumerate(ocr_annotations[:5]):  # Show first 5
+        print(f"  {i+1}. '{ann['text']}' at ({ann['x']}, {ann['y']})")
+    
+    print(f"\n[Debug] Current mouse position: ({mouse_x}, {mouse_y})")
+    print(f"[Debug] Screen text length: {len(screen_text)}")
+    
+    return ocr_annotations, mouse_x, mouse_y
+
 if __name__ == "__main__":
     print("=== AGENTIC DESKTOP: PERCEPTION-ACTION LOOP (AUTORUN) ===")
+    
+    # Test coordinate mapping first
+    test_coordinate_mapping()
+    
     user_goal = input("Enter your goal: ")
     agent_autorun(user_goal)
     print("\nFinal agent state:")
