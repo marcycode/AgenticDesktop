@@ -119,6 +119,26 @@
             transform: translateY(-2px);
         }
 
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+            transform: translateY(-2px);
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #138496;
+            transform: translateY(-2px);
+        }
+
         .btn:disabled {
             opacity: 0.6;
             cursor: not-allowed;
@@ -180,18 +200,197 @@
             color: #721c24;
         }
 
+        .status-paused {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+
+        /* Enhanced Step Visualization */
         .steps-container {
-            margin-top: 15px;
+            margin-top: 20px;
+        }
+
+        .steps-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .steps-title {
+            font-weight: 600;
+            color: #495057;
+            font-size: 1.1rem;
+        }
+
+        .step-counter {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .step-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
 
         .step-item {
             background: white;
-            padding: 12px 15px;
-            margin: 8px 0;
-            border-radius: 8px;
-            border: 1px solid #e9ecef;
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .step-item.active {
+            border-color: #667eea;
+            background: #f8f9ff;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+        }
+
+        .step-item.completed {
+            border-color: #28a745;
+            background: #f8fff9;
+        }
+
+        .step-item.error {
+            border-color: #dc3545;
+            background: #fff8f8;
+        }
+
+        .step-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .step-number {
+            background: #667eea;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .step-number.completed {
+            background: #28a745;
+        }
+
+        .step-number.error {
+            background: #dc3545;
+        }
+
+        .step-action {
+            font-weight: 600;
+            color: #495057;
+            text-transform: capitalize;
+        }
+
+        .step-details {
             font-family: 'Courier New', monospace;
-            font-size: 14px;
+            font-size: 13px;
+            color: #6c757d;
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-top: 8px;
+        }
+
+        .step-status {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .step-status.pending {
+            color: #6c757d;
+        }
+
+        .step-status.active {
+            color: #667eea;
+        }
+
+        .step-status.completed {
+            color: #28a745;
+        }
+
+        .step-status.error {
+            color: #dc3545;
+        }
+
+        /* Process Controls */
+        .process-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .process-progress {
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 8px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+
+        .progress-text {
+            text-align: center;
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        /* Example Commands */
+        .examples-section {
+            margin-top: 20px;
+        }
+
+        .examples-title {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+
+        .example-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .example-tag {
+            background: #e9ecef;
+            color: #495057;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .example-tag:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-1px);
         }
 
         .desktop-panel {
@@ -206,63 +405,54 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #f1f3f4;
+            margin-bottom: 20px;
         }
 
         .desktop-header h3 {
             color: #2c3e50;
-            font-size: 1.5rem;
+            font-size: 1.3rem;
         }
 
         .desktop-controls {
             display: flex;
+            gap: 10px;
             align-items: center;
-            gap: 15px;
         }
 
         .desktop-viewer {
             position: relative;
-            min-height: 400px;
-            background: #f8f9fa;
             border-radius: 12px;
             overflow: hidden;
+            background: #f8f9fa;
+            min-height: 300px;
+        }
+
+        .desktop-image {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .desktop-image.active {
+            display: block;
         }
 
         .desktop-placeholder {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            height: 300px;
+            color: #6c757d;
         }
 
         .placeholder-content {
             text-align: center;
-            color: #6c757d;
         }
 
         .placeholder-icon {
-            font-size: 4rem;
-            margin-bottom: 20px;
-        }
-
-        .placeholder-content h4 {
-            margin-bottom: 10px;
-            color: #495057;
-        }
-
-        #desktopImage {
-            display: none;
-        }
-
-        #desktopImage.active {
-            display: block;
+            font-size: 3rem;
+            margin-bottom: 15px;
         }
 
         .history-panel {
@@ -276,14 +466,12 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #f1f3f4;
+            margin-bottom: 20px;
         }
 
         .history-header h3 {
             color: #2c3e50;
-            font-size: 1.5rem;
+            font-size: 1.3rem;
         }
 
         .loading {
@@ -291,7 +479,7 @@
             align-items: center;
             gap: 10px;
             color: #667eea;
-            font-weight: 500;
+            font-weight: 600;
         }
 
         .loading.show {
@@ -301,7 +489,7 @@
         .spinner {
             width: 20px;
             height: 20px;
-            border: 2px solid #f3f3f3;
+            border: 2px solid #e9ecef;
             border-top: 2px solid #667eea;
             border-radius: 50%;
             animation: spin 1s linear infinite;
@@ -312,54 +500,26 @@
             100% { transform: rotate(360deg); }
         }
 
-        .examples {
-            margin-top: 20px;
-        }
-
-        .examples h4 {
-            margin-bottom: 15px;
-            color: #495057;
-        }
-
-        .example-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .example-tag {
-            background: #e9ecef;
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .example-tag:hover {
-            background: #667eea;
-            color: white;
-        }
-
+        /* Responsive Design */
         @media (max-width: 768px) {
             .container {
                 padding: 10px;
             }
-
-            .header h1 {
-                font-size: 2rem;
-            }
-
+            
             .main-panel {
                 padding: 20px;
             }
-
+            
             .input-container {
                 flex-direction: column;
             }
-
+            
+            .process-controls {
+                flex-direction: column;
+            }
+            
             .btn {
-                padding: 12px 20px;
+                width: 100%;
             }
         }
     </style>
@@ -368,39 +528,35 @@
     <div class="container">
         <div class="header">
             <h1>🤖 AgenticDesktop</h1>
-            <p>AI-Powered Desktop Automation</p>
+            <p>Intelligent Desktop Automation with Multi-Step Process Management</p>
         </div>
 
         <div class="main-panel">
             <div class="input-section">
                 <div class="input-container">
                     <input type="text" id="commandInput" class="command-input" 
-                           placeholder="Tell me what you want to do... (e.g., 'open Chrome and search for restaurants')" 
+                           placeholder="Describe what you want to do... (e.g., 'open calculator and search for weather')" 
                            onkeypress="handleKeyPress(event)">
                     <button class="btn btn-primary" onclick="processCommand()">
                         <span id="processText">Process</span>
+                        <div id="loading" class="loading">
+                            <div class="spinner"></div>
+                            Processing...
+                        </div>
                     </button>
-                    <button class="btn btn-secondary" onclick="getVoiceCommand()">
-                        🎤 Voice
-                    </button>
-                    <button class="btn btn-secondary" id="desktopToggle" onclick="toggleDesktopStream()">
-                        📺 Desktop
-                    </button>
-                </div>
-                
-                <div class="loading" id="loading">
-                    <div class="spinner"></div>
-                    <span>Processing your command...</span>
+                    <button class="btn btn-secondary" onclick="getVoiceCommand()">🎤 Voice</button>
+                    <button class="btn btn-info" onclick="toggleDesktopStream()">📺 Desktop</button>
                 </div>
 
-                <div class="examples">
-                    <h4>Try these examples:</h4>
+                <div class="examples-section">
+                    <div class="examples-title">💡 Try these examples:</div>
                     <div class="example-tags">
-                        <span class="example-tag" onclick="setExample('open Chrome and search for weather')">Search weather</span>
-                        <span class="example-tag" onclick="setExample('copy all files from Downloads to Desktop')">Copy files</span>
-                        <span class="example-tag" onclick="setExample('open calculator')">Open calculator</span>
-                        <span class="example-tag" onclick="setExample('find all PDF files in Documents')">Find PDFs</span>
-                        <span class="example-tag" onclick="setExample('move recent downloads to Pictures folder')">Move files</span>
+                        <span class="example-tag" onclick="setExample('open calculator and search for weather forecast')">Calculator + Weather</span>
+                        <span class="example-tag" onclick="setExample('find all PDF files in Documents and copy them to Desktop')">Find & Copy PDFs</span>
+                        <span class="example-tag" onclick="setExample('open browser and search for latest news')">Browser + News</span>
+                        <span class="example-tag" onclick="setExample('navigate to Downloads folder and list all recent files')">List Downloads</span>
+                        <span class="example-tag" onclick="setExample('open text editor and type a reminder note')">Create Note</span>
+                        <span class="example-tag" onclick="setExample('move all image files from Desktop to Pictures folder')">Organize Images</span>
                     </div>
                 </div>
             </div>
@@ -414,11 +570,11 @@
                 <h3>🖥️ Desktop View</h3>
                 <div class="desktop-controls">
                     <span id="desktopStatus" class="status-badge status-ready">Ready</span>
-                    <button class="btn btn-secondary" onclick="toggleDesktopStream()">Stop</button>
+                    <button class="btn btn-secondary" id="desktopToggle" onclick="toggleDesktopStream()">Stop</button>
                 </div>
             </div>
             <div class="desktop-viewer">
-                <img id="desktopImage" src="" alt="Desktop Stream" style="width: 100%; height: auto; border-radius: 8px;">
+                <img id="desktopImage" class="desktop-image" src="" alt="Desktop Stream">
                 <div id="desktopPlaceholder" class="desktop-placeholder">
                     <div class="placeholder-content">
                         <div class="placeholder-icon">🖥️</div>
@@ -431,7 +587,7 @@
 
         <div class="history-panel">
             <div class="history-header">
-                <h3>Command History</h3>
+                <h3>📋 Command History</h3>
                 <button class="btn btn-secondary" onclick="loadHistory()">Refresh</button>
             </div>
             <div id="historyContainer">
@@ -444,6 +600,8 @@
         const socket = io();
         let currentCommandId = null;
         let desktopStreaming = false;
+        let currentStepIndex = 0;
+        let executingSteps = false;
 
         // Socket event listeners
         socket.on('command_update', function(data) {
@@ -552,6 +710,9 @@
 
         async function executeCommand(commandId) {
             try {
+                executingSteps = true;
+                currentStepIndex = 0;
+                
                 const response = await fetch('/api/execute_command', {
                     method: 'POST',
                     headers: {
@@ -566,6 +727,90 @@
             } catch (error) {
                 console.error('Error executing command:', error);
                 alert('Error executing command: ' + error.message);
+                executingSteps = false;
+            }
+        }
+
+        async function executeStepByStep(commandId) {
+            try {
+                executingSteps = true;
+                currentStepIndex = 0;
+                
+                const response = await fetch('/api/execute_step_by_step', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ command_id: commandId })
+                });
+
+                const data = await response.json();
+                console.log('Step-by-step execution started:', data);
+                
+            } catch (error) {
+                console.error('Error executing step by step:', error);
+                alert('Error executing step by step: ' + error.message);
+                executingSteps = false;
+            }
+        }
+
+        async function executeNextStep(commandId) {
+            try {
+                const response = await fetch('/api/execute_next_step', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ command_id: commandId, step_index: currentStepIndex })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    currentStepIndex++;
+                    updateStepProgress(commandId, currentStepIndex);
+                }
+                
+            } catch (error) {
+                console.error('Error executing next step:', error);
+                alert('Error executing next step: ' + error.message);
+            }
+        }
+
+        async function pauseExecution(commandId) {
+            try {
+                const response = await fetch('/api/pause_execution', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ command_id: commandId })
+                });
+
+                const data = await response.json();
+                console.log('Execution paused:', data);
+                
+            } catch (error) {
+                console.error('Error pausing execution:', error);
+                alert('Error pausing execution: ' + error.message);
+            }
+        }
+
+        async function resumeExecution(commandId) {
+            try {
+                const response = await fetch('/api/resume_execution', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ command_id: commandId })
+                });
+
+                const data = await response.json();
+                console.log('Execution resumed:', data);
+                
+            } catch (error) {
+                console.error('Error resuming execution:', error);
+                alert('Error resuming execution: ' + error.message);
             }
         }
 
@@ -626,22 +871,80 @@
             const statusText = commandData.status.charAt(0).toUpperCase() + commandData.status.slice(1);
             
             let stepsHtml = '';
+            let processControls = '';
+            let progressBar = '';
+            
             if (commandData.steps && Array.isArray(commandData.steps)) {
+                const totalSteps = commandData.steps.length;
+                const completedSteps = commandData.completed_steps || 0;
+                
                 stepsHtml = `
                     <div class="steps-container">
-                        <h5 style="margin-bottom: 10px; color: #495057;">Planned Steps:</h5>
-                        ${commandData.steps.map(step => `
-                            <div class="step-item">
-                                <strong>${step.action}:</strong> ${JSON.stringify(step, null, 2).slice(1, -1)}
+                        <div class="steps-header">
+                            <div class="steps-title">📋 Process Steps</div>
+                            <div class="step-counter">${completedSteps}/${totalSteps} completed</div>
+                        </div>
+                        ${progressBar = `
+                            <div class="process-progress">
+                                <div class="progress-bar" style="width: ${(completedSteps / totalSteps) * 100}%"></div>
                             </div>
-                        `).join('')}
+                            <div class="progress-text">${completedSteps} of ${totalSteps} steps completed</div>
+                        `}
+                        <div class="step-list">
+                            ${commandData.steps.map((step, index) => {
+                                const stepStatus = getStepStatus(commandData, index);
+                                const stepClass = `step-item ${stepStatus}`;
+                                const numberClass = `step-number ${stepStatus}`;
+                                
+                                return `
+                                    <div class="${stepClass}">
+                                        <div class="step-header">
+                                            <div class="step-number ${numberClass}">${index + 1}</div>
+                                            <div class="step-action">${step.action}</div>
+                                            <div class="step-status ${stepStatus}">${stepStatus}</div>
+                                        </div>
+                                        <div class="step-details">${formatStepDetails(step)}</div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
                     </div>
                 `;
-            }
-
-            let executeButton = '';
-            if (commandData.status === 'ready') {
-                executeButton = `<button class="btn btn-success" onclick="executeCommand('${commandData.id}')">Execute</button>`;
+                
+                if (commandData.status === 'ready') {
+                    processControls = `
+                        <div class="process-controls">
+                            <button class="btn btn-success" onclick="executeCommand('${commandData.id}')">
+                                🚀 Execute All Steps
+                            </button>
+                            <button class="btn btn-info" onclick="executeStepByStep('${commandData.id}')">
+                                👣 Execute Step by Step
+                            </button>
+                        </div>
+                    `;
+                } else if (commandData.status === 'executing' && commandData.execution_mode === 'step_by_step') {
+                    processControls = `
+                        <div class="process-controls">
+                            <button class="btn btn-success" onclick="executeNextStep('${commandData.id}')">
+                                ⏭️ Execute Next Step
+                            </button>
+                            <button class="btn btn-warning" onclick="pauseExecution('${commandData.id}')">
+                                ⏸️ Pause
+                            </button>
+                        </div>
+                    `;
+                } else if (commandData.status === 'paused') {
+                    processControls = `
+                        <div class="process-controls">
+                            <button class="btn btn-success" onclick="resumeExecution('${commandData.id}')">
+                                ▶️ Resume
+                            </button>
+                            <button class="btn btn-info" onclick="executeStepByStep('${commandData.id}')">
+                                🔄 Restart Step by Step
+                            </button>
+                        </div>
+                    `;
+                }
             }
 
             container.innerHTML = `
@@ -652,11 +955,67 @@
                     </div>
                     ${stepsHtml}
                     ${commandData.error ? `<div style="color: #dc3545; margin-top: 10px;"><strong>Error:</strong> ${commandData.error}</div>` : ''}
-                    <div style="margin-top: 15px; text-align: right;">
-                        ${executeButton}
-                    </div>
+                    ${processControls}
                 </div>
             `;
+        }
+
+        function getStepStatus(commandData, stepIndex) {
+            if (commandData.step_statuses && commandData.step_statuses[stepIndex]) {
+                return commandData.step_statuses[stepIndex];
+            }
+            
+            if (commandData.status === 'completed') {
+                return 'completed';
+            } else if (commandData.status === 'executing') {
+                if (stepIndex < (commandData.completed_steps || 0)) {
+                    return 'completed';
+                } else if (stepIndex === (commandData.completed_steps || 0)) {
+                    return 'active';
+                } else {
+                    return 'pending';
+                }
+            } else if (commandData.status === 'error' && stepIndex === (commandData.error_step || 0)) {
+                return 'error';
+            }
+            
+            return 'pending';
+        }
+
+        function formatStepDetails(step) {
+            const details = { ...step };
+            delete details.action;
+            
+            return Object.entries(details)
+                .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+                .join(', ');
+        }
+
+        function updateStepProgress(commandId, currentStep) {
+            // Update the visual progress for step-by-step execution
+            const container = document.getElementById('currentCommand');
+            const stepItems = container.querySelectorAll('.step-item');
+            
+            stepItems.forEach((item, index) => {
+                item.classList.remove('active', 'completed');
+                const number = item.querySelector('.step-number');
+                const status = item.querySelector('.step-status');
+                
+                if (index < currentStep) {
+                    item.classList.add('completed');
+                    number.classList.add('completed');
+                    status.textContent = 'completed';
+                    status.className = 'step-status completed';
+                } else if (index === currentStep) {
+                    item.classList.add('active');
+                    number.classList.remove('completed');
+                    status.textContent = 'active';
+                    status.className = 'step-status active';
+                } else {
+                    status.textContent = 'pending';
+                    status.className = 'step-status pending';
+                }
+            });
         }
 
         async function loadHistory() {
@@ -675,17 +1034,45 @@
                     const statusClass = `status-${command.status}`;
                     const statusText = command.status.charAt(0).toUpperCase() + command.status.slice(1);
                     const date = new Date(command.timestamp * 1000).toLocaleString();
+                    
                     let stepsHtml = '';
                     if (command.steps && Array.isArray(command.steps)) {
+                        const totalSteps = command.steps.length;
+                        const completedSteps = command.completed_steps || 0;
+                        
                         stepsHtml = `
                             <div class="steps-container">
-                                ${command.steps.map(step => `
-                                    <div class="step-item">
-                                        <strong>${step.action}:</strong> ${JSON.stringify(step, null, 2).slice(1, -1)}
-                                    </div>
-                                `).join('')}
+                                <div class="steps-header">
+                                    <div class="steps-title">📋 Process Steps (${completedSteps}/${totalSteps})</div>
+                                </div>
+                                <div class="process-progress">
+                                    <div class="progress-bar" style="width: ${(completedSteps / totalSteps) * 100}%"></div>
+                                </div>
+                                <div class="step-list">
+                                    ${command.steps.map((step, index) => {
+                                        const stepStatus = getStepStatus(command, index);
+                                        const stepClass = `step-item ${stepStatus}`;
+                                        const numberClass = `step-number ${stepStatus}`;
+                                        
+                                        return `
+                                            <div class="${stepClass}">
+                                                <div class="step-header">
+                                                    <div class="step-number ${numberClass}">${index + 1}</div>
+                                                    <div class="step-action">${step.action}</div>
+                                                    <div class="step-status ${stepStatus}">${stepStatus}</div>
+                                                </div>
+                                                <div class="step-details">${formatStepDetails(step)}</div>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
                             </div>
                         `;
+                    }
+
+                    let actionButtons = '';
+                    if (command.status === 'completed') {
+                        actionButtons = `<button class="btn btn-warning" onclick="undoCommand('${command.id}')">Undo</button>`;
                     }
 
                     return `
@@ -697,7 +1084,7 @@
                             <div style="font-size: 12px; color: #6c757d; margin-bottom: 10px;">${date}</div>
                             ${stepsHtml}
                             ${command.error ? `<div style="color: #dc3545; margin-top: 10px;"><strong>Error:</strong> ${command.error}</div>` : ''}
-                            ${command.status === 'completed' ? `<button class="btn btn-warning" onclick="undoCommand('${command.id}')">Undo</button>` : ''}
+                            ${actionButtons}
                         </div>
                     `;
                 }).join('');
